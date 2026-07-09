@@ -1,8 +1,8 @@
 import dataclasses
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
 
+from trust_bench.core.config import RunConfig
 from trust_bench.core.provenance import EnvProvenance
 
 
@@ -48,7 +48,7 @@ class RunResult:
     n_heval: int | None
     trace: list[list[float]] | None
     timing: TimingStats | None
-    config: Any
+    config: RunConfig
     provenance: EnvProvenance
     harness_git_sha: str
     timestamp: str
@@ -67,6 +67,7 @@ class RunResult:
         data = dict(data)
         data["status"] = RunStatus(data["status"])
         data["provenance"] = EnvProvenance.from_dict(data["provenance"])
+        data["config"] = RunConfig.from_dict(data["config"])
         if data["timing"] is not None:
             data["timing"] = TimingStats.from_dict(data["timing"])
         return cls(**data)
