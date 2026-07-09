@@ -1,6 +1,7 @@
 import trust_bench.studies.baseline as baseline_module
 from trust_bench.backends import BACKENDS
 from trust_bench.core.result import RunStatus
+from trust_bench.problems import rosenbrock
 from trust_bench.studies.baseline import CANONICAL_PROBLEMS, basin_rates, standard_start_results
 
 
@@ -39,5 +40,5 @@ def test_basin_rate_evaluates_every_registered_start_not_only_standard(monkeypat
     basin_rates()
 
     rosenbrock_starts = {start for problem_id, start in calls if problem_id == "rosenbrock"}
-    assert rosenbrock_starts == set(baseline_module.rosenbrock.PROBLEM.starts)
+    assert rosenbrock_starts == set(rosenbrock.PROBLEM.starts)
     assert "far" in rosenbrock_starts

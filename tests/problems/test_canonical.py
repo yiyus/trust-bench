@@ -1,17 +1,7 @@
 import pytest
 from invariants import assert_known_optimum, assert_parity
 
-from trust_bench.problems import beale, expdec, helical, linear, powell, quadratic, rosenbrock
-
-PROBLEMS = [
-    rosenbrock.PROBLEM,
-    beale.PROBLEM,
-    powell.PROBLEM,
-    helical.PROBLEM,
-    expdec.PROBLEM,
-    quadratic.PROBLEM,
-    linear.PROBLEM,
-]
+from trust_bench.problems import CANONICAL_PROBLEMS as PROBLEMS
 
 
 @pytest.mark.parametrize("problem", PROBLEMS, ids=lambda p: p.id)

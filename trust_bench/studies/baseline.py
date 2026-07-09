@@ -2,17 +2,7 @@ from trust_bench.backends import BACKENDS
 from trust_bench.core.config import RunConfig
 from trust_bench.core.metrics import basin_rate
 from trust_bench.core.runner import run
-from trust_bench.problems import beale, expdec, helical, linear, powell, quadratic, rosenbrock
-
-CANONICAL_PROBLEMS = [
-    rosenbrock.PROBLEM,
-    beale.PROBLEM,
-    powell.PROBLEM,
-    helical.PROBLEM,
-    expdec.PROBLEM,
-    quadratic.PROBLEM,
-    linear.PROBLEM,
-]
+from trust_bench.problems import CANONICAL_PROBLEMS
 
 _METHOD = "lm"
 _CONFIG = RunConfig(max_iter=200)
