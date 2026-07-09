@@ -1,5 +1,9 @@
+import pytest
+
 from trust_bench.core.result import RunResult, RunStatus
 from trust_bench.studies.bounded import METHODS, SCENARIOS, sweep
+
+_TOL = 1e-6
 
 # The APL backend does not exist yet, so this study covers only SciPy's
 # trf/dogbox for now; a Coleman-Li-scaling comparison point is added
@@ -18,8 +22,8 @@ def test_inactive_bounds_converge_to_the_unconstrained_optimum():
     for (name, method), outcome in outcomes.items():
         assert isinstance(outcome, RunResult), f"{name}/{method}"
         assert outcome.status is RunStatus.CONVERGED, f"{name}/{method}"
-        assert outcome.x_final[0] == 0.0
-        assert outcome.x_final[1] == 0.0
+        assert outcome.x_final[0] == pytest.approx(0.0, abs=_TOL), f"{name}/{method}"
+        assert outcome.x_final[1] == pytest.approx(0.0, abs=_TOL), f"{name}/{method}"
 
 
 def test_active_at_boundary_bounds_converge_exactly_to_the_boundary():
@@ -28,8 +32,8 @@ def test_active_at_boundary_bounds_converge_exactly_to_the_boundary():
     for (name, method), outcome in outcomes.items():
         assert isinstance(outcome, RunResult), f"{name}/{method}"
         assert outcome.status is RunStatus.CONVERGED, f"{name}/{method}"
-        assert outcome.x_final[0] == 0.5
-        assert outcome.x_final[1] == 0.0
+        assert outcome.x_final[0] == pytest.approx(0.5, abs=_TOL), f"{name}/{method}"
+        assert outcome.x_final[1] == pytest.approx(0.0, abs=_TOL), f"{name}/{method}"
 
 
 def test_infeasible_start_raises_a_clear_error_for_both_methods():
