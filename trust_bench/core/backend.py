@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Literal
 
+from trust_bench.core.config import RunConfig
 from trust_bench.core.problem import Problem
 from trust_bench.core.provenance import EnvProvenance
 from trust_bench.core.result import RunResult
@@ -31,4 +32,4 @@ class Backend(ABC):
     def environment(self) -> EnvProvenance: ...
 
     @abstractmethod
-    def solve(self, problem: Problem, method: str, start: str, config: Any) -> RunResult: ...
+    def solve(self, problem: Problem, method: str, start: str, config: RunConfig) -> RunResult: ...

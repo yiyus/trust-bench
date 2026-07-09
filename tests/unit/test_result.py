@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from trust_bench.core.config import RunConfig
 from trust_bench.core.provenance import capture
 from trust_bench.core.result import RunResult, RunStatus, TimingStats
 
@@ -24,7 +25,7 @@ def _run_result_kwargs(**overrides):
         n_heval=0,
         trace=[[-1.2, 1.0], [1.0, 1.0]],
         timing=TimingStats(median=0.01, mad=0.001, n_reps=5, warmup=2, thread_count=1),
-        config={"ftol": 1e-8},
+        config=RunConfig(tolerance=1e-8),
         provenance=capture(),
         harness_git_sha="abc123",
         timestamp="2026-01-01T00:00:00Z",

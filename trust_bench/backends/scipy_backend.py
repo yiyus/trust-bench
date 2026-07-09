@@ -5,6 +5,7 @@ from scipy.optimize import BFGS as BFGSHessianUpdate
 from scipy.optimize import least_squares, minimize
 
 from trust_bench.core.backend import Backend, Capabilities, MethodCapabilities
+from trust_bench.core.config import RunConfig
 from trust_bench.core.provenance import capture, harness_git_sha
 from trust_bench.core.result import RunResult, RunStatus
 
@@ -14,6 +15,19 @@ _MINIMIZE_USES_HESSIAN = frozenset({"Newton-CG", "trust-exact", "trust-constr"})
 _LEAST_SQUARES_LOSSES = frozenset({"linear", "soft_l1", "huber", "cauchy", "arctan"})
 _BOTH_DERIVATIVE_MODES = frozenset({"analytic", "finite-difference"})
 _ANALYTIC_ONLY = frozenset({"analytic"})
+
+# Verified via scipy.optimize.show_options(solver="minimize", method=...):
+# the subset of {ftol, xtol, gtol} each method's `options` dict accepts. A
+# single intent-level tolerance is applied to every native parameter a
+# method exposes, rather than picking one and leaving the others at
+# scipy's own default.
+_MINIMIZE_TOLERANCE_PARAMS = {
+    "BFGS": frozenset({"gtol"}),
+    "L-BFGS-B": frozenset({"ftol", "gtol"}),
+    "Newton-CG": frozenset({"xtol"}),
+    "trust-exact": frozenset({"gtol"}),
+    "trust-constr": frozenset({"gtol", "xtol"}),
+}
 
 _LEAST_SQUARES_STATUS = {
     -1: RunStatus.ERROR,
@@ -129,7 +143,7 @@ class SciPyBackend(Backend):
     def environment(self):
         return capture()
 
-    def solve(self, problem, method: str, start: str, config) -> RunResult:
+    def solve(self, problem, method: str, start: str, config: RunConfig) -> RunResult:
         if method not in self.capabilities().methods:
             raise ValueError(f"{self.name} has no method {method!r}")
 
@@ -169,17 +183,17 @@ class SciPyBackend(Backend):
 
     def _solve_least_squares(self, problem, method, start, config):
         x0 = np.array(problem.starts[start], dtype=float)
-        use_fd = config.get("derivative_mode") == "finite-difference" or problem.jacobian is None
+        use_fd = config.derivative_mode == "finite-difference" or problem.jacobian is None
         jac = "2-point" if use_fd else problem.jacobian
-        kwargs = dict(
-            fun=problem.residual, x0=x0, jac=jac, method=method, loss=config.get("loss", "linear")
-        )
-        bounds = config.get("bounds")
+        kwargs = dict(fun=problem.residual, x0=x0, jac=jac, method=method, loss=config.loss)
+        bounds = config.bounds
         if bounds is not None:
             kwargs["bounds"] = bounds
-        max_iter = config.get("max_iter")
+        max_iter = config.max_iter
         if max_iter is not None:
             kwargs["max_nfev"] = max_iter
+        if config.tolerance is not None:
+            kwargs["ftol"] = kwargs["xtol"] = kwargs["gtol"] = config.tolerance
 
         result = least_squares(**kwargs)
         r_final = np.asarray(problem.residual(result.x), dtype=float)
@@ -190,11 +204,11 @@ class SciPyBackend(Backend):
         caps = self.capabilities().methods[method]
         x0 = np.array(problem.starts[start], dtype=float)
 
-        bounds = config.get("bounds")
+        bounds = config.bounds
         if bounds is not None and not caps.bounds:
             raise ValueError(f"{method} does not support bounds")
 
-        wants_fd = config.get("derivative_mode") == "finite-difference"
+        wants_fd = config.derivative_mode == "finite-difference"
         needs_fd_gradient = wants_fd or problem.jacobian is None
         needs_fd_hessian = method in _MINIMIZE_USES_HESSIAN and (wants_fd or problem.hessian is None)
         if (needs_fd_gradient or needs_fd_hessian) and "finite-difference" not in caps.derivative_modes:
@@ -215,9 +229,15 @@ class SciPyBackend(Backend):
             # and relying on whatever undocumented default it falls back
             # to per method.
             kwargs["hess"] = BFGSHessianUpdate() if needs_fd_hessian else problem.hessian
-        max_iter = config.get("max_iter")
+        max_iter = config.max_iter
+        options = {}
         if max_iter is not None:
-            kwargs["options"] = {"maxiter": max_iter}
+            options["maxiter"] = max_iter
+        if config.tolerance is not None:
+            for param in _MINIMIZE_TOLERANCE_PARAMS[method]:
+                options[param] = config.tolerance
+        if options:
+            kwargs["options"] = options
 
         result = minimize(**kwargs)
         return result, _map_minimize_status(result, max_iter), _final_gradient(result)
