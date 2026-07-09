@@ -10,7 +10,6 @@ FRACTIONS = [0.0, 0.1, 0.2, 0.3, 0.4, 0.45, 0.49]
 SCIPY_LOSSES = ["linear", "soft_l1", "huber", "cauchy", "arctan"]
 
 _METHOD = "trf"
-_CONFIG = RunConfig(max_iter=200)
 _TUKEY_C = 4.685
 
 
