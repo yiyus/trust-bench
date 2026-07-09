@@ -38,7 +38,7 @@ class ToyGradientDescentBackend(Backend):
         if method not in self.capabilities().methods:
             raise ValueError(f"{self.name} has no method {method!r}")
 
-        max_iter = config["max_iter"]
+        max_iter = config.max_iter
         x = np.array(problem.starts[start], dtype=float)
         n_feval = n_jeval = 0
         status = RunStatus.MAX_ITER

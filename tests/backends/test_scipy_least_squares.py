@@ -3,7 +3,9 @@ import dataclasses
 import numpy as np
 import pytest
 
+import trust_bench.backends.scipy_backend as scipy_backend_module
 from trust_bench.backends.scipy_backend import SciPyBackend
+from trust_bench.core.config import RunConfig
 from trust_bench.core.result import RunStatus
 from trust_bench.problems import quadratic
 
@@ -13,9 +15,21 @@ START = "standard"
 LEAST_SQUARES_METHODS = ["lm", "trf", "dogbox"]
 
 
+def _spy_on_least_squares(monkeypatch):
+    captured = {}
+    real_least_squares = scipy_backend_module.least_squares
+
+    def spy(*args, **kwargs):
+        captured.update(kwargs)
+        return real_least_squares(*args, **kwargs)
+
+    monkeypatch.setattr(scipy_backend_module, "least_squares", spy)
+    return captured
+
+
 @pytest.mark.parametrize("method", LEAST_SQUARES_METHODS)
 def test_method_solves_the_trivial_quadratic_to_the_known_optimum(method):
-    result = BACKEND.solve(PROBLEM, method, START, {"max_iter": 100})
+    result = BACKEND.solve(PROBLEM, method, START, RunConfig(max_iter=100))
 
     assert result.status is RunStatus.CONVERGED
     assert np.allclose(result.x_final, PROBLEM.optima[0].x_star, atol=1e-6)
@@ -32,7 +46,10 @@ def test_capabilities_bounds_flag_matches_which_methods_accept_bounds():
 @pytest.mark.parametrize("method", ["trf", "dogbox"])
 def test_bounded_methods_accept_and_respect_box_constraints(method):
     result = BACKEND.solve(
-        PROBLEM, method, START, {"max_iter": 100, "bounds": ([0.5, -np.inf], [np.inf, np.inf])}
+        PROBLEM,
+        method,
+        START,
+        RunConfig(max_iter=100, bounds=([0.5, -np.inf], [np.inf, np.inf])),
     )
 
     assert result.x_final[0] >= 0.5 - 1e-9
@@ -42,7 +59,10 @@ def test_bounded_methods_accept_and_respect_box_constraints(method):
 def test_lm_rejects_box_constraints():
     with pytest.raises(ValueError):
         BACKEND.solve(
-            PROBLEM, "lm", START, {"max_iter": 100, "bounds": ([0.5, -np.inf], [np.inf, np.inf])}
+            PROBLEM,
+            "lm",
+            START,
+            RunConfig(max_iter=100, bounds=([0.5, -np.inf], [np.inf, np.inf])),
         )
 
 
@@ -57,7 +77,7 @@ def test_finite_difference_derivative_mode_never_calls_the_analytic_jacobian(met
     problem = dataclasses.replace(PROBLEM, jacobian=counting_jacobian)
 
     result = BACKEND.solve(
-        problem, method, START, {"max_iter": 100, "derivative_mode": "finite-difference"}
+        problem, method, START, RunConfig(max_iter=100, derivative_mode="finite-difference")
     )
 
     assert calls == []
@@ -68,7 +88,7 @@ def test_finite_difference_derivative_mode_never_calls_the_analytic_jacobian(met
 def test_solve_falls_back_to_finite_difference_when_problem_has_no_analytic_jacobian():
     problem = dataclasses.replace(PROBLEM, jacobian=None)
 
-    result = BACKEND.solve(problem, "lm", START, {"max_iter": 100})
+    result = BACKEND.solve(problem, "lm", START, RunConfig(max_iter=100))
 
     assert result.status is RunStatus.CONVERGED
     assert np.allclose(result.x_final, PROBLEM.optima[0].x_star, atol=1e-6)
@@ -85,13 +105,39 @@ def test_capabilities_losses_match_which_methods_accept_non_linear_losses():
 @pytest.mark.parametrize("method", ["trf", "dogbox"])
 def test_loss_config_reaches_scipy_for_bounded_methods(method):
     # An unrecognised loss name is rejected by scipy itself; this only
-    # happens if solve() actually forwards config["loss"] to
-    # least_squares(loss=...), so a solve() that silently ignores the key
+    # happens if solve() actually forwards config.loss to
+    # least_squares(loss=...), so a solve() that silently ignores the field
     # would not raise here.
     with pytest.raises(ValueError):
-        BACKEND.solve(PROBLEM, method, START, {"max_iter": 100, "loss": "not-a-real-loss"})
+        BACKEND.solve(PROBLEM, method, START, RunConfig(max_iter=100, loss="not-a-real-loss"))
 
 
 def test_lm_rejects_a_non_linear_loss():
     with pytest.raises(ValueError):
-        BACKEND.solve(PROBLEM, "lm", START, {"max_iter": 100, "loss": "huber"})
+        BACKEND.solve(PROBLEM, "lm", START, RunConfig(max_iter=100, loss="huber"))
+
+
+@pytest.mark.parametrize("method", LEAST_SQUARES_METHODS)
+def test_tolerance_maps_to_ftol_xtol_and_gtol(method, monkeypatch):
+    # least_squares exposes all three stopping criteria simultaneously
+    # (Section 7 of docs/plans/trust-bench.md); a single intent-level
+    # tolerance is applied to all three rather than leaving two of them at
+    # scipy's own defaults.
+    captured = _spy_on_least_squares(monkeypatch)
+
+    BACKEND.solve(PROBLEM, method, START, RunConfig(max_iter=100, tolerance=1e-5))
+
+    assert captured["ftol"] == 1e-5
+    assert captured["xtol"] == 1e-5
+    assert captured["gtol"] == 1e-5
+
+
+@pytest.mark.parametrize("method", LEAST_SQUARES_METHODS)
+def test_no_tolerance_config_leaves_scipys_own_defaults_in_place(method, monkeypatch):
+    captured = _spy_on_least_squares(monkeypatch)
+
+    BACKEND.solve(PROBLEM, method, START, RunConfig(max_iter=100))
+
+    assert "ftol" not in captured
+    assert "xtol" not in captured
+    assert "gtol" not in captured
