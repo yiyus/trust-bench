@@ -119,6 +119,11 @@ def test_scaling_hessian_diagonal_ratio_grows_with_s_and_matches_s_squared():
         assert np.isclose(ratio, s**2, rtol=1e-6)
 
 
+def test_scaling_rejects_a_non_positive_s():
+    with pytest.raises(ValueError):
+        scaling.make(s=0.0)
+
+
 # ---------------------------------------------------------------------------
 # dimensionality
 # ---------------------------------------------------------------------------
