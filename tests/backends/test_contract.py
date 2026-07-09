@@ -1,5 +1,5 @@
 import pytest
-from toy_backend import BACKENDS
+from all_backends import BACKENDS
 
 from trust_bench.core.result import RunResult, RunStatus
 from trust_bench.problems import quadratic

@@ -1,6 +1,7 @@
 import json
+import subprocess
 
-from trust_bench.core.provenance import EnvProvenance, capture
+from trust_bench.core.provenance import EnvProvenance, capture, harness_git_sha
 
 
 def test_capture_returns_a_populated_env_provenance():
@@ -23,3 +24,11 @@ def test_env_provenance_round_trips_through_json_serialisation():
 
 def test_machine_fingerprint_is_stable_across_calls():
     assert capture().machine_fingerprint == capture().machine_fingerprint
+
+
+def test_harness_git_sha_matches_git_rev_parse_head():
+    expected = subprocess.run(
+        ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+    assert harness_git_sha() == expected

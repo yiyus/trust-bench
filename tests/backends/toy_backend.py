@@ -1,9 +1,9 @@
 """A minimal Backend implementation used only to exercise the contract
 tests in test_contract.py. Not a real solver: plain gradient descent at a
-fixed step size, one method, no bounds, no analytic Hessian use. Real
-backends (SciPy, issue #16/#17) are added to BACKENDS alongside this one,
-not in place of it: this backend proves the contract itself is testable
-before any real backend exists.
+fixed step size, one method, no bounds, no analytic Hessian use. Listed
+in all_backends.py alongside real backends, not in place of them: this
+backend proves the contract itself is testable regardless of how many
+real backends also satisfy it.
 """
 import numpy as np
 
@@ -79,6 +79,3 @@ class ToyGradientDescentBackend(Backend):
             harness_git_sha="test",
             timestamp="2026-01-01T00:00:00Z",
         )
-
-
-BACKENDS = [ToyGradientDescentBackend()]
