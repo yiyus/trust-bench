@@ -67,9 +67,12 @@ def backend_results(rhos=RHOS, backends=BACKENDS):
     for rho in rhos:
         problem = make(rho)
         for backend in backends:
-            results[(rho, backend.name)] = run(problem, backend, _METHOD, "standard", _CONFIG)
+            standard_result = run(problem, backend, _METHOD, "standard", _CONFIG)
+            results[(rho, backend.name)] = standard_result
             distances = [
-                run(problem, backend, _METHOD, start, _CONFIG).dist_to_opt
+                standard_result.dist_to_opt
+                if start == "standard"
+                else run(problem, backend, _METHOD, start, _CONFIG).dist_to_opt
                 for start in problem.starts
             ]
             rates[(rho, backend.name)] = basin_rate(distances, _BASIN_TOL)
