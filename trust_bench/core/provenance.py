@@ -2,6 +2,7 @@ import dataclasses
 import hashlib
 import os
 import platform
+import subprocess
 from dataclasses import dataclass
 
 
@@ -54,3 +55,13 @@ def capture() -> EnvProvenance:
         cpu_count=cpu_count,
         machine_fingerprint=machine_fingerprint,
     )
+
+
+def harness_git_sha() -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+    return result.stdout.strip()
