@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Optimisation-solver comparison harness"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
+dependencies = ["numpy"]
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff", "coverage"]

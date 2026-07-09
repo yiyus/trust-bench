@@ -1,4 +1,5 @@
 import math
+import warnings
 
 from trust_bench.core.metrics import order, rate
 
@@ -26,3 +27,23 @@ def test_order_returns_nan_when_too_few_points_survive_the_floor():
         errors.append(errors[-1] ** 2)
 
     assert math.isnan(order(errors))
+
+
+def test_order_ignores_a_plateau_in_the_error_sequence():
+    errors = [1.0, 0.5, 0.5, 0.25, 0.125, 0.0625, 0.03, 0.015]
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        estimate = order(errors)
+
+    assert math.isclose(estimate, 1.0, abs_tol=1e-3)
+
+
+def test_order_returns_nan_when_plateaus_leave_too_few_valid_estimates():
+    errors = [1.0, 0.5, 0.5, 0.5]
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        estimate = order(errors)
+
+    assert math.isnan(estimate)
