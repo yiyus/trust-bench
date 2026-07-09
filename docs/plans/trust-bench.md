@@ -177,12 +177,16 @@ and exercise each language's own evaluation path.
 
 ```python
 @dataclass(frozen=True)
-class Capabilities:
-    methods: frozenset[str]          # {"lm","trf","bfgs","newton-trust",...}
-    losses:  frozenset[str]          # {"l2","huber","cauchy","tukey","welsch",...}
-    bounds:  bool
+class MethodCapabilities:
+    kind: Literal["residuals", "scalar"]  # Problem.kind this method solves
+    losses: frozenset[str]                # {"l2","huber",...}; empty for scalar methods
+    bounds: bool
     analytic_hessian: bool
-    derivative_modes: frozenset[str] # {"analytic","finite-difference"}
+    derivative_modes: frozenset[str]      # {"analytic","finite-difference"}
+
+@dataclass(frozen=True)
+class Capabilities:
+    methods: dict[str, MethodCapabilities]  # e.g. {"lm": ..., "trf": ..., "bfgs": ...}
 
 class Backend(ABC):
     name: str                        # "scipy", "trust-apl", "julia-optim", ...
@@ -191,6 +195,14 @@ class Backend(ABC):
     def solve(self, problem: Problem, method: str, start: str,
               config: RunConfig) -> RunResult: ...
 ```
+
+`bounds` and `analytic_hessian` are keyed per method, not per backend: SciPy's
+`least_squares(method="lm")` rejects bounds while `trf`/`dogbox` accept them,
+and among `minimize` methods only `L-BFGS-B`/`trust-constr` accept bounds
+while plain `BFGS` does not. A single backend-level boolean cannot express
+this, and the illustrative capability matrix in Section 9.1 already needs the
+per-method distinction (its "yes (trf)", "yes (trust-*)" annotations are
+exactly `capabilities().methods[<method>]` lookups under this schema).
 
 In-process backends (SciPy, Optimistix) implement `solve` directly.
 Out-of-process backends (APL, Julia, and any future compiled backend) use a
@@ -214,6 +226,7 @@ class RunResult:
     cost_final: float
     dist_to_opt: float | None        # ||x_final - x*|| against nearest known optimum
     cost_gap: float | None           # cost_final - cost*
+    grad_norm_final: float | None    # ||grad(x_final)||; optimality residual, no trace needed
     status: RunStatus                # CONVERGED | MAX_ITER | FAILED | DIVERGED | ERROR
     n_iter: int | None
     n_feval: int | None
@@ -269,12 +282,18 @@ These tests are the contract underpinning any downstream comparison.
 
 | Tier | Metrics | Cross-language claim? | Primary use |
 |------|---------|-----------------------|-------------|
-| **1: intrinsic** | final `dist_to_opt`, `cost_gap`, convergence success/failure, empirical convergence order & linear rate (from `trace`) | Yes: these are algorithm properties, not environment artefacts | Capability comparison; "shines/fails" boundaries; assessing `trust` |
+| **1: intrinsic** | final `dist_to_opt`, `cost_gap`, `grad_norm_final`, convergence success/failure, basin-of-attraction rate (fraction of a problem's registered `starts` reaching a known optimum), empirical convergence order & linear rate (from `trace`, where exposed) | Yes: these are algorithm properties, not environment artefacts | Capability comparison; "shines/fails" boundaries; assessing `trust` |
 | **2: semi-comparable** | `n_iter`, `n_feval`, `n_jeval`, `n_heval` | Only within the same algorithm class, and only after normalising the definition of an iteration (rejected steps, inner iterations), documented per backend | Efficiency comparison with explicit caveats |
 | **3: environment-dependent** | wall-clock `timing`, memory | No bare "X is faster than Y" across languages | Longitudinal tracking of one backend across versions/hardware; within-machine snapshots |
 
 Consequences baked into the design:
 - Headline cross-language findings are built on Tier 1.
+- Order and rate are reported as an explicit `unavailable` outcome, not
+  omitted or zero, for any backend whose harness does not expose per-iterate
+  `trace`. `grad_norm_final` and the basin-of-attraction rate need only the
+  final iterate, so they stay comparable across every backend regardless of
+  trace support, and keep goal 2's cross-language assessment intact even
+  where a backend's trace instrumentation lags.
 - Tier 2 is always reported next to the algorithm and its stopping-criterion
   mapping, never as a lone number.
 - Tier 3 is always reported as a distribution (median + MAD over N warm
@@ -331,9 +350,14 @@ report section. They map onto the "where does each library shine or fail" goal.
 
 1. **Baseline correctness.** The canonical set (Rosenbrock, Beale, Powell,
    Helical, ExpDec, Quadratic, Linear) at their standard starts. Regression /
-   parity across backends; the floor everything must clear.
+   parity across backends; the floor everything must clear. Also reports the
+   basin-of-attraction rate across each problem's registered `starts`
+   (including deliberately hard ones, e.g. Rosenbrock's `far` start): the
+   first Tier-1 metric in the plan that needs no `trace` at all.
 2. **Large residual (LM vs Newton).** The prototype's axis: sweep residual
-   size; Tier-1 order/rate; predicted vs measured Gauss-Newton failure boundary.
+   size; Tier-1 order/rate where the backend exposes `trace`, `grad_norm_final`
+   and basin-of-attraction rate regardless of trace support; predicted vs
+   measured Gauss-Newton failure boundary.
 3. **Ill-conditioning.** Sweep the condition number of `J`/Hessian; record
    success and precision. Separates exact trust-region, CG/Krylov, and dense
    quasi-Newton behaviour.
@@ -390,7 +414,9 @@ and round-trips through serialisation. Deliver: package skeleton, pytest, lint
 Tests first: feed synthetic sequences of *known* behaviour: quadratic
 (`e_{k+1}=e_k²`) → order ≈ 2; linear (`e_{k+1}=r·e_k`) → rate ≈ r; guards for
 too-few-points → NaN (learned from the prototype, where fp64 quadratic
-convergence yields too few iterates to fit an order). Deliver: `metrics.py`.
+convergence yields too few iterates to fit an order); basin-of-attraction
+rate over a set of `RunResult`s matches a hand-computed fraction. Deliver:
+`metrics.py`.
 
 **Phase 2: Problem registry & canonical problems.**
 Tests first: analytic-vs-FD parity at probe points; known-optimum invariants
@@ -408,7 +434,9 @@ Tests first (parametrised, so every future backend inherits them): `solve`
 returns a well-formed `RunResult`; solves a trivial quadratic to the known
 optimum within tolerance; respects `max_iter` (returns `MAX_ITER`, not a
 crash); eval counts are non-negative and monotone; `capabilities()` is
-consistent with what `solve` accepts. Deliver: `backend.py`, `scipy_backend.py`
+consistent with what `solve` accepts (per method: a backend cannot claim
+`bounds=True` for a method whose `solve` call rejects a bounded config).
+Deliver: `backend.py`, `scipy_backend.py`
 (least_squares lm/trf/dogbox, minimize BFGS/L-BFGS-B/Newton-CG/trust-*).
 
 **Phase 5: Runner (orchestration).**
