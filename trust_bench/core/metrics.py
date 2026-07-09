@@ -37,3 +37,20 @@ def rate(errors, floor=1e-12):
         return float("nan")
     ratios = e[1:] / e[:-1]
     return float(np.median(ratios))
+
+
+def basin_rate(distances_to_opt, tol):
+    """Fraction of runs whose distance to a known optimum is within `tol`.
+
+    `distances_to_opt` is an iterable of `float | None` (e.g. each run's
+    `RunResult.dist_to_opt`, Section 4.3 of the design doc); `None` means a
+    run with no known optimum to compare against, such as a failed run. It
+    counts as not having reached the optimum but still counts in the
+    denominator, since the rate is a fraction of every attempted start, not
+    only the ones with a distance. NaN for an empty set of starts.
+    """
+    distances = list(distances_to_opt)
+    if not distances:
+        return float("nan")
+    reached = sum(1 for d in distances if d is not None and d <= tol)
+    return reached / len(distances)

@@ -1,7 +1,7 @@
 import math
 import warnings
 
-from trust_bench.core.metrics import order, rate
+from trust_bench.core.metrics import basin_rate, order, rate
 
 
 def test_order_estimates_two_for_a_quadratically_convergent_sequence():
@@ -47,3 +47,13 @@ def test_order_returns_nan_when_plateaus_leave_too_few_valid_estimates():
         estimate = order(errors)
 
     assert math.isnan(estimate)
+
+
+def test_basin_rate_matches_a_hand_computed_fraction_on_a_fixture_set():
+    distances_to_opt = [1e-9, 0.3, 1e-10, None, 2.5]
+
+    assert math.isclose(basin_rate(distances_to_opt, tol=1e-6), 0.4)
+
+
+def test_basin_rate_returns_nan_for_an_empty_set_of_starts():
+    assert math.isnan(basin_rate([], tol=1e-6))
