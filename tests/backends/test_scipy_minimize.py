@@ -43,8 +43,11 @@ def test_bounded_methods_accept_and_respect_box_constraints(method):
         PROBLEM, method, START, {"max_iter": 100, "bounds": [(0.5, np.inf), (-np.inf, np.inf)]}
     )
 
+    # trust-constr's default convergence tolerance is looser than
+    # L-BFGS-B's for this trivial problem (verified: ~6e-5 vs ~1e-21
+    # error), so this atol is calibrated to trust-constr, not L-BFGS-B.
     assert result.x_final[0] >= 0.5 - 1e-6
-    assert np.isclose(result.x_final[0], 0.5, atol=1e-6)
+    assert np.isclose(result.x_final[0], 0.5, atol=1e-3)
 
 
 @pytest.mark.parametrize("method", UNBOUNDED_METHODS)
@@ -108,3 +111,29 @@ def test_solve_falls_back_to_finite_difference_when_problem_has_no_analytic_jaco
 
     assert result.status is RunStatus.CONVERGED
     assert np.allclose(result.x_final, PROBLEM.optima[0].x_star, atol=1e-6)
+
+
+def test_fd_capable_hessian_method_still_solves_when_problem_has_no_analytic_hessian():
+    # trust-constr is the only Hessian-using method whose derivative_modes
+    # includes finite-difference (verified in test_capabilities_derivative_
+    # modes_match_which_methods_support_finite_difference), so it is the
+    # only one that can fall back to a Hessian update strategy here.
+    problem = dataclasses.replace(PROBLEM, hessian=None)
+
+    result = BACKEND.solve(problem, "trust-constr", START, {"max_iter": 100})
+
+    assert result.status is RunStatus.CONVERGED
+    assert np.allclose(result.x_final, PROBLEM.optima[0].x_star, atol=1e-6)
+
+
+@pytest.mark.parametrize("method", FD_INCAPABLE_METHODS)
+def test_analytic_only_hessian_methods_reject_a_problem_with_no_analytic_hessian(method):
+    # Newton-CG and trust-exact both declare derivative_modes={"analytic"};
+    # a problem with no analytic Hessian is, for these two, the same kind
+    # of unsupported finite-difference request as no analytic Jacobian,
+    # even though scipy itself would let Newton-CG silently fall back to a
+    # different (Hessian-free) mechanism if asked directly.
+    problem = dataclasses.replace(PROBLEM, hessian=None)
+
+    with pytest.raises(ValueError):
+        BACKEND.solve(problem, method, START, {"max_iter": 100})
