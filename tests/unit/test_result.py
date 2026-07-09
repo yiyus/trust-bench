@@ -33,6 +33,14 @@ def _run_result_kwargs(**overrides):
     return defaults
 
 
+def test_timing_stats_round_trips_through_json_serialisation():
+    stats = TimingStats(median=0.01, mad=0.001, n_reps=5, warmup=2, thread_count=1)
+
+    restored = TimingStats.from_dict(json.loads(json.dumps(stats.to_dict())))
+
+    assert restored == stats
+
+
 def test_run_result_round_trips_through_json_serialisation():
     result = RunResult(**_run_result_kwargs())
 
