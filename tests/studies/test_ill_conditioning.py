@@ -1,4 +1,7 @@
 from trust_bench.backends import BACKENDS
+from trust_bench.backends.scipy_backend import SciPyBackend
+from trust_bench.core.backend import Backend, Capabilities
+from trust_bench.core.provenance import capture
 from trust_bench.core.result import RunStatus
 from trust_bench.studies.ill_conditioning import KAPPAS, METHODS, sweep
 
@@ -44,3 +47,31 @@ def test_newton_cg_and_bfgs_remain_successful_where_trust_exact_fails_at_extreme
     assert results[(kappa, "trust-exact", backend_name)].status is RunStatus.FAILED
     assert results[(kappa, "Newton-CG", backend_name)].status is RunStatus.CONVERGED
     assert results[(kappa, "BFGS", backend_name)].status is RunStatus.CONVERGED
+
+
+class _BFGSOnlyBackend(Backend):
+    """Wraps SciPyBackend but declares only BFGS, to prove sweep() skips
+    a (method, backend) pair the backend does not support rather than
+    raising the "no method" ValueError Backend.solve itself would.
+    """
+
+    name = "bfgs-only"
+
+    def __init__(self):
+        self._scipy = SciPyBackend()
+
+    def capabilities(self):
+        methods = self._scipy.capabilities().methods
+        return Capabilities(methods={"BFGS": methods["BFGS"]})
+
+    def environment(self):
+        return capture()
+
+    def solve(self, problem, method, start, config):
+        return self._scipy.solve(problem, method, start, config)
+
+
+def test_sweep_skips_a_method_a_backend_does_not_support():
+    results = sweep(kappas=[100.0], backends=[_BFGSOnlyBackend()])
+
+    assert set(results) == {(100.0, "BFGS", "bfgs-only")}
