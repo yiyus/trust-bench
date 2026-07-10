@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from trust_bench.reporting.capability_matrix import derive_matrix
+from trust_bench.reporting.html_report import build_html_report, save_html_report
 from trust_bench.reporting.plots import plot_metric_vs_sweep, save_figure
 from trust_bench.reporting.tables import results_to_dataframe, save_table
 from trust_bench.studies import (
@@ -110,13 +111,17 @@ def _select_studies(only=None, skip=None, skip_slow=False):
     return selected
 
 
-def run_report(output_dir, only=None, skip=None, skip_slow=False):
+def run_report(output_dir, only=None, skip=None, skip_slow=False, html=False):
     selected = _select_studies(only=only, skip=skip, skip_slow=skip_slow)
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     for name in sorted(selected):
         STUDIES[name](output_dir)
+
+    if html:
+        save_html_report(build_html_report(output_dir), output_dir / "report.html")
+
     return output_dir
 
 
@@ -161,6 +166,11 @@ def build_parser():
         action="store_true",
         help=f"Skip studies that take noticeably longer to run ({', '.join(sorted(SLOW_STUDIES))}).",
     )
+    report_parser.add_argument(
+        "--html",
+        action="store_true",
+        help="Also write report.html, bundling every table and plot into one self-contained page.",
+    )
     return parser
 
 
@@ -168,7 +178,11 @@ def main(argv=None):
     args = build_parser().parse_args(argv if argv is not None else sys.argv[1:])
     if args.command == "report":
         output_dir = run_report(
-            args.output_dir, only=args.only, skip=args.skip, skip_slow=args.skip_slow
+            args.output_dir,
+            only=args.only,
+            skip=args.skip,
+            skip_slow=args.skip_slow,
+            html=args.html,
         )
         print(f"Report artefacts written to {output_dir}")
 
