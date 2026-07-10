@@ -85,6 +85,15 @@ def test_select_studies_skip_removes_from_the_full_set():
     assert _select_studies(skip=["dimensionality"]) == set(STUDIES) - {"dimensionality"}
 
 
+def test_select_studies_rejects_an_unknown_name_when_called_directly():
+    # argparse's choices= already rejects an unknown name at the CLI
+    # boundary (test_unknown_study_name_is_rejected_by_argument_parsing
+    # above); this is the same guard for direct, non-CLI callers of
+    # _select_studies/run_report.
+    with pytest.raises(ValueError):
+        _select_studies(only=["not-a-real-study"])
+
+
 def test_select_studies_skip_slow_removes_the_slow_set():
     assert _select_studies(skip_slow=True) == set(STUDIES) - SLOW_STUDIES
 

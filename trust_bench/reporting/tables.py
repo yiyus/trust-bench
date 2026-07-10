@@ -15,15 +15,25 @@ _METRIC_FIELDS = [
 
 def results_to_dataframe(results, key_names):
     """Flattens a study's sweep() dict (keyed by a tuple matching
-    key_names) into a comparison table: one row per RunResult, one
-    column per sweep key and per Tier-1/Tier-2 RunResult field.
+    key_names) into a comparison table: one row per result, one column
+    per sweep key and per Tier-1/Tier-2 RunResult field.
+
+    A value may be a raised exception instead of a RunResult (e.g.
+    bounded.py's infeasible-start scenario, which is expected to
+    raise): that row gets status "ERROR" and every metric field left
+    blank, rather than the flattening failing outright.
     """
     rows = []
     for key, result in results.items():
         row = dict(zip(key_names, key))
-        row["status"] = result.status.value
-        for field in _METRIC_FIELDS[1:]:
-            row[field] = getattr(result, field)
+        if isinstance(result, BaseException):
+            row["status"] = "ERROR"
+            for field in _METRIC_FIELDS[1:]:
+                row[field] = None
+        else:
+            row["status"] = result.status.value
+            for field in _METRIC_FIELDS[1:]:
+                row[field] = getattr(result, field)
         rows.append(row)
     return pd.DataFrame(rows, columns=[*key_names, *_METRIC_FIELDS])
 
