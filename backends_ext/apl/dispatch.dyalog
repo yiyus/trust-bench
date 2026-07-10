@@ -8,4 +8,14 @@ NameFor←{
     ⍵≡'linear':'Linear'
     ''
 }
+HessianNameFor←{
+    ⍵≡'rosenbrock':'RosenbrockHessian'
+    ⍵≡'beale':'BealeHessian'
+    ⍵≡'powell':'PowellHessian'
+    ⍵≡'helical':'HelicalHessian'
+    ⍵≡'expdec':'ExpDecHessian'
+    ⍵≡'quadratic':'QuadraticHessian'
+    ⍵≡'linear':'LinearHessian'
+    ''
+}
 Apply←{name point←⍵ ⋄ ⍎name,' point'}

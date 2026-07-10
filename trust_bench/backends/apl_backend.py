@@ -47,16 +47,17 @@ def _run_harness(request: dict) -> dict:
         return json.loads(output_path.read_text())
 
 
-def evaluate_problem(problem_id: str, x) -> tuple[list[float], list[list[float]]]:
-    """Evaluate a problem's residual and Jacobian at x via the APL harness's
-    'evaluate' mode. Used by the cross-language parity tests; not called by
-    APLBackend.solve, which never needs a probe at an arbitrary point.
+def evaluate_problem(problem_id: str, x) -> tuple[list[float], list[list[float]], list[list[float]]]:
+    """Evaluate a problem's residual, Jacobian and Hessian at x via the APL
+    harness's 'evaluate' mode. Used by the cross-language parity tests; not
+    called by APLBackend.solve, which never needs a probe at an arbitrary
+    point.
     """
     request = {"mode": "evaluate", "problem_id": problem_id, "x": np.asarray(x, dtype=float).tolist()}
     response = _run_harness(request)
     if response["status"] != "OK":
         raise RuntimeError(response["message"])
-    return response["residual"], response["jacobian"]
+    return response["residual"], response["jacobian"], response["hessian"]
 
 
 def _dyalog_version() -> str:
@@ -86,7 +87,21 @@ class APLBackend(Backend):
                     bounds=True,
                     analytic_hessian=False,
                     derivative_modes=frozenset({"analytic", "finite-difference"}),
-                )
+                ),
+                "BFGS": MethodCapabilities(
+                    kind="scalar",
+                    losses=frozenset({"linear"}),
+                    bounds=True,
+                    analytic_hessian=False,
+                    derivative_modes=frozenset({"analytic", "finite-difference"}),
+                ),
+                "trust-exact": MethodCapabilities(
+                    kind="scalar",
+                    losses=frozenset({"linear"}),
+                    bounds=True,
+                    analytic_hessian=True,
+                    derivative_modes=frozenset({"analytic"}),
+                ),
             }
         )
 
@@ -114,6 +129,7 @@ class APLBackend(Backend):
 
         request = {
             "problem_id": problem.id,
+            "method": method,
             "x0": np.asarray(problem.starts[start], dtype=float).tolist(),
             "loss": _LOSS_TO_TRUST[config.loss],
         }
@@ -152,7 +168,7 @@ class APLBackend(Backend):
             # trust's Eval convention returns the residual and Jacobian from
             # the same call; every counted evaluation is both at once.
             n_jeval=response["n_feval"],
-            n_heval=None if response["n_feval"] is None else 0,
+            n_heval=response["n_heval"],
             trace=None,
             timing=None,
             config=config,

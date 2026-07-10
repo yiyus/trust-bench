@@ -4,3 +4,4 @@ Linear←{
     b←1 2 3
     ((A+.×x)-b)A
 }
+LinearHessian←{r j←Linear ⍵ ⋄ (⍉j)+.×j}
