@@ -193,7 +193,19 @@ class SciPyBackend(Backend):
         x0 = np.array(problem.starts[start], dtype=float)
         use_fd = config.derivative_mode == "finite-difference" or problem.jacobian is None
         jac = "2-point" if use_fd else problem.jacobian
-        kwargs = dict(fun=problem.residual, x0=x0, jac=jac, method=method, loss=config.loss)
+
+        # result.nfev only counts calls scipy's outer algorithm makes
+        # itself, not the extra residual calls its own finite-difference
+        # Jacobian estimation makes internally; counting calls to the
+        # function actually passed to least_squares captures both.
+        call_count = 0
+
+        def counted_residual(x):
+            nonlocal call_count
+            call_count += 1
+            return problem.residual(x)
+
+        kwargs = dict(fun=counted_residual, x0=x0, jac=jac, method=method, loss=config.loss)
         bounds = config.bounds
         if bounds is not None:
             kwargs["bounds"] = bounds
@@ -206,8 +218,10 @@ class SciPyBackend(Backend):
             kwargs["x_scale"] = config.x_scale
 
         result = least_squares(**kwargs)
-        r_final = np.asarray(problem.residual(result.x), dtype=float)
-        grad_final = result.jac.T @ r_final
+        result.nfev = call_count
+        # result.fun is already the residual at result.x; recomputing it
+        # via problem.residual would cost one more (uncounted) call.
+        grad_final = result.jac.T @ np.asarray(result.fun, dtype=float)
         return result, _map_least_squares_status(result.status), grad_final
 
     def _solve_minimize(self, problem, method, start, config):

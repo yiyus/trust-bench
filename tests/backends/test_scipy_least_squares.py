@@ -141,3 +141,46 @@ def test_no_tolerance_config_leaves_scipys_own_defaults_in_place(method, monkeyp
     assert "ftol" not in captured
     assert "xtol" not in captured
     assert "gtol" not in captured
+
+
+@pytest.mark.parametrize("method", LEAST_SQUARES_METHODS)
+def test_n_feval_counts_every_residual_call_including_finite_difference_jacobian_steps(method):
+    # Verified directly against scipy: result.nfev only counts calls the
+    # outer algorithm makes itself, not the extra residual calls scipy's
+    # own finite-difference Jacobian estimation makes internally, which
+    # for a 2-variable problem is most of the true call count (e.g. 7
+    # real calls vs. 2 reported, for every method here).
+    calls = []
+
+    def counting_residual(x):
+        calls.append(x)
+        return PROBLEM.residual(x)
+
+    problem = dataclasses.replace(PROBLEM, residual=counting_residual)
+
+    result = BACKEND.solve(
+        problem, method, START, RunConfig(max_iter=100, derivative_mode="finite-difference")
+    )
+
+    assert result.n_feval == len(calls)
+
+
+@pytest.mark.parametrize("method", LEAST_SQUARES_METHODS)
+def test_n_feval_does_not_count_an_extra_call_made_only_to_report_grad_norm_final(method):
+    # A second, independent undercount: solve() used to recompute
+    # problem.residual(result.x) after least_squares returned, purely to
+    # derive grad_norm_final, adding one genuine extra call that scipy's
+    # own nfev never counted either. Verified directly: real calls are
+    # exactly reported nfev + 1 in analytic mode, for every method, with
+    # the un-fixed implementation.
+    calls = []
+
+    def counting_residual(x):
+        calls.append(x)
+        return PROBLEM.residual(x)
+
+    problem = dataclasses.replace(PROBLEM, residual=counting_residual)
+
+    result = BACKEND.solve(problem, method, START, RunConfig(max_iter=100))
+
+    assert result.n_feval == len(calls)
