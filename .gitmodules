@@ -1,0 +1,3 @@
+[submodule "backends_ext/apl/trust"]
+	path = backends_ext/apl/trust
+	url = https://github.com/yiyus/trust.git
