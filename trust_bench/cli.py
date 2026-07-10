@@ -26,12 +26,14 @@ AVAILABLE_BACKENDS = {backend.name: backend for backend in [SciPyBackend(), APLB
 
 
 def _check_backend_coverage(df, backends, study):
-    """Raise clearly if a selected backend produced zero rows for this
-    study, rather than let a study's own per-pair skip guard (e.g.
+    """Raise clearly if a selected backend produced zero usable rows for
+    this study, rather than let a study's own per-pair skip guard (e.g.
     ill_conditioning.sweep's "method not supported: continue") silently
-    produce an empty report table.
+    produce an empty report table, or a backend whose problem ids the
+    study doesn't recognise silently pass coverage on ERROR rows alone.
     """
-    missing = {backend.name for backend in backends} - set(df["backend"])
+    rows = df[df["status"] != "ERROR"] if "status" in df.columns else df
+    missing = {backend.name for backend in backends} - set(rows["backend"])
     if missing:
         raise ValueError(f"{study}: no results for backend(s) {', '.join(sorted(missing))}")
 

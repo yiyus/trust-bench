@@ -47,9 +47,6 @@
   calls←calls+1
   finalpair←Apply f r.p
   grad←(⍉2⊃finalpair)+.×1⊃finalpair
-  :If method≡'trust-exact'
-      hcalls←hcalls+1
-  :EndIf
   :If r.iter≥r.toli
       status←'MAX_ITER'
   :ElseIf r.dnorm>r.dmax
