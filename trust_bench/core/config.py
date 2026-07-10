@@ -10,6 +10,7 @@ class RunConfig:
     bounds: Any = None
     derivative_mode: str | None = None
     loss: str = "linear"
+    x_scale: Any = None
 
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)
