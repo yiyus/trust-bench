@@ -3,7 +3,10 @@ import time
 import pytest
 
 from trust_bench.backends import BACKENDS
+from trust_bench.backends.scipy_backend import SciPyBackend
+from trust_bench.core.backend import Backend, Capabilities
 from trust_bench.core.config import RunConfig
+from trust_bench.core.provenance import capture
 from trust_bench.core.result import RunStatus
 from trust_bench.core.runner import run
 from trust_bench.problems.families import dimensionality
@@ -70,3 +73,31 @@ def test_dense_hessian_methods_cost_far_more_per_step_at_large_dimension():
             run(problem, backend, method, "standard", config)
             elapsed = time.perf_counter() - start
             assert elapsed > _SLOW_METHOD_TIME_RATIO * reference_time, f"{method} on {backend.name}"
+
+
+class _BFGSOnlyBackend(Backend):
+    """Wraps SciPyBackend but declares only BFGS, to prove sweep() skips
+    a (method, backend) pair the backend does not support rather than
+    raising the "no method" ValueError Backend.solve itself would.
+    """
+
+    name = "bfgs-only"
+
+    def __init__(self):
+        self._scipy = SciPyBackend()
+
+    def capabilities(self):
+        methods = self._scipy.capabilities().methods
+        return Capabilities(methods={"BFGS": methods["BFGS"]})
+
+    def environment(self):
+        return capture()
+
+    def solve(self, problem, method, start, config):
+        return self._scipy.solve(problem, method, start, config)
+
+
+def test_sweep_skips_a_method_a_backend_does_not_support():
+    results = sweep(n_values=[10], backends=[_BFGSOnlyBackend()])
+
+    assert set(results) == {(10, "BFGS", "bfgs-only")}

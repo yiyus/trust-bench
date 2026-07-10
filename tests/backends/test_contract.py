@@ -1,5 +1,5 @@
 import pytest
-from all_backends import BACKENDS
+from all_backends import BACKEND_METHODS, BACKENDS
 
 from trust_bench.core.config import RunConfig
 from trust_bench.core.result import RunResult, RunStatus
@@ -9,10 +9,8 @@ PROBLEM = quadratic.PROBLEM
 START = "standard"
 
 
-@pytest.mark.parametrize("backend", BACKENDS, ids=lambda b: b.name)
-def test_solve_returns_a_well_formed_run_result(backend):
-    method = next(iter(backend.capabilities().methods))
-
+@pytest.mark.parametrize("backend, method", BACKEND_METHODS)
+def test_solve_returns_a_well_formed_run_result(backend, method):
     result = backend.solve(PROBLEM, method, START, RunConfig(max_iter=45))
 
     assert isinstance(result, RunResult)
@@ -24,19 +22,15 @@ def test_solve_returns_a_well_formed_run_result(backend):
     assert result.n_heval >= 0
 
 
-@pytest.mark.parametrize("backend", BACKENDS, ids=lambda b: b.name)
-def test_solve_respects_max_iter_and_returns_max_iter_status_instead_of_raising(backend):
-    method = next(iter(backend.capabilities().methods))
-
+@pytest.mark.parametrize("backend, method", BACKEND_METHODS)
+def test_solve_respects_max_iter_and_returns_max_iter_status_instead_of_raising(backend, method):
     result = backend.solve(PROBLEM, method, START, RunConfig(max_iter=1))
 
     assert result.status is RunStatus.MAX_ITER
 
 
-@pytest.mark.parametrize("backend", BACKENDS, ids=lambda b: b.name)
-def test_eval_counts_are_non_negative_and_monotone_across_increasing_max_iter(backend):
-    method = next(iter(backend.capabilities().methods))
-
+@pytest.mark.parametrize("backend, method", BACKEND_METHODS)
+def test_eval_counts_are_non_negative_and_monotone_across_increasing_max_iter(backend, method):
     feval_counts = []
     jeval_counts = []
     for max_iter in [5, 15, 30]:
