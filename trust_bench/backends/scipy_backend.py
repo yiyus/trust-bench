@@ -10,7 +10,7 @@ from trust_bench.core.provenance import capture, harness_git_sha
 from trust_bench.core.result import RunResult, RunStatus
 
 _LEAST_SQUARES_METHODS = frozenset({"lm", "trf", "dogbox"})
-_MINIMIZE_USES_HESSIAN = frozenset({"Newton-CG", "trust-exact", "trust-constr"})
+_MINIMIZE_USES_HESSIAN = frozenset({"Newton-CG", "trust-exact", "trust-constr", "trust-krylov"})
 
 _LEAST_SQUARES_LOSSES = frozenset({"linear", "soft_l1", "huber", "cauchy", "arctan"})
 _BOTH_DERIVATIVE_MODES = frozenset({"analytic", "finite-difference"})
@@ -27,6 +27,7 @@ _MINIMIZE_TOLERANCE_PARAMS = {
     "Newton-CG": frozenset({"xtol"}),
     "trust-exact": frozenset({"gtol"}),
     "trust-constr": frozenset({"gtol", "xtol"}),
+    "trust-krylov": frozenset(),
 }
 
 _LEAST_SQUARES_STATUS = {
@@ -136,6 +137,13 @@ class SciPyBackend(Backend):
                     bounds=True,
                     analytic_hessian=True,
                     derivative_modes=_BOTH_DERIVATIVE_MODES,
+                ),
+                "trust-krylov": MethodCapabilities(
+                    kind="residuals",
+                    losses=frozenset(),
+                    bounds=False,
+                    analytic_hessian=True,
+                    derivative_modes=_ANALYTIC_ONLY,
                 ),
             }
         )

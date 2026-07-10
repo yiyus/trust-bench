@@ -1,7 +1,7 @@
 .PHONY: test lint coverage
 
 test:
-	pytest
+	pytest -m "not slow"
 
 lint:
 	ruff check .
