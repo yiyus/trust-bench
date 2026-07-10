@@ -151,6 +151,11 @@ def test_bounds_work_for_the_trust_exact_method(tmp_path):
     assert result["status"] == "CONVERGED"
     assert result["x_final"][0] == pytest.approx(0.5, abs=1e-4)
     assert result["x_final"][1] == pytest.approx(0.0, abs=1e-4)
+    # lm reaches this same boundary point for this scenario too, so
+    # status/x_final alone would pass even if req.method were silently
+    # ignored and the harness fell back to lm. n_heval > 0 only holds
+    # if trust-exact was genuinely dispatched.
+    assert result["n_heval"] > 0
 
 
 @pytest.mark.slow
