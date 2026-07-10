@@ -105,12 +105,33 @@ def test_run_report_writes_only_the_selected_studys_artefact(tmp_path):
     assert not (tmp_path / "scaling.csv").exists()
 
 
+def test_report_command_html_flag_defaults_to_false():
+    assert build_parser().parse_args(["report"]).html is False
+
+
+def test_report_command_can_request_an_html_bundle():
+    assert build_parser().parse_args(["report", "--html"]).html is True
+
+
+def test_run_report_does_not_write_an_html_bundle_by_default(tmp_path):
+    run_report(tmp_path, only=["baseline"])
+
+    assert not (tmp_path / "report.html").exists()
+
+
+def test_run_report_writes_an_html_bundle_when_requested(tmp_path):
+    run_report(tmp_path, only=["baseline"], html=True)
+
+    html = (tmp_path / "report.html").read_text()
+    assert "baseline" in html
+
+
 @pytest.mark.slow
 def test_report_command_produces_every_milestone_artefact(tmp_path):
     # The direct reading of the acceptance criterion: the full
     # Python-only pipeline, run end-to-end through the actual CLI
     # entry point, headless, producing real files on disk.
-    main(["report", "--output-dir", str(tmp_path)])
+    main(["report", "--output-dir", str(tmp_path), "--html"])
 
     assert matplotlib.get_backend().lower() == "agg"
 
@@ -124,3 +145,5 @@ def test_report_command_produces_every_milestone_artefact(tmp_path):
         path = tmp_path / name
         assert path.exists(), name
         assert path.stat().st_size > 0, name
+
+    assert (tmp_path / "report.html").exists()
