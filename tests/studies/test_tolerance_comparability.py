@@ -33,8 +33,8 @@ def test_sweep_reports_dist_to_opt_and_grad_norm_final_for_every_result():
 @pytest.mark.slow
 @pytest.mark.skipif(shutil.which("dyalogscript") is None, reason="Dyalog APL is not installed")
 def test_sweep_surfaces_the_precision_gap_an_equal_tolerance_does_not_remove():
-    # The confound #86 exists to make visible, not to eliminate: scipy's
-    # "lm" reaches machine-zero on rosenbrock regardless of the intent-level
+    # This confound is being made visible, not eliminated: scipy's "lm"
+    # reaches machine-zero on rosenbrock regardless of the intent-level
     # tolerance passed, while trust-apl's stall-detection convergence test
     # stops well short of it, because the two libraries' tolerance
     # parameters are not semantically equivalent stopping criteria (see
