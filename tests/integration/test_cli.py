@@ -1,8 +1,20 @@
+import shutil
+
 import matplotlib
 import pandas as pd
 import pytest
 
-from trust_bench.cli import SLOW_STUDIES, STUDIES, _select_studies, build_parser, main, run_report
+from trust_bench.backends import BACKENDS
+from trust_bench.cli import (
+    AVAILABLE_BACKENDS,
+    SLOW_STUDIES,
+    STUDIES,
+    _select_backends,
+    _select_studies,
+    build_parser,
+    main,
+    run_report,
+)
 
 _EXPECTED_TABLES = [
     "baseline.csv",
@@ -73,6 +85,21 @@ def test_unknown_study_name_is_rejected_by_argument_parsing():
         build_parser().parse_args(["report", "--only", "not-a-real-study"])
 
 
+def test_report_command_can_select_specific_backends():
+    args = build_parser().parse_args(["report", "--backends", "scipy"])
+
+    assert args.backends == ["scipy"]
+
+
+def test_report_command_backends_defaults_to_none():
+    assert build_parser().parse_args(["report"]).backends is None
+
+
+def test_unknown_backend_name_is_rejected_by_argument_parsing():
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["report", "--backends", "not-a-real-backend"])
+
+
 def test_select_studies_defaults_to_every_registered_study():
     assert _select_studies() == set(STUDIES)
 
@@ -98,11 +125,56 @@ def test_select_studies_skip_slow_removes_the_slow_set():
     assert _select_studies(skip_slow=True) == set(STUDIES) - SLOW_STUDIES
 
 
+def test_select_backends_defaults_to_the_production_backends_list():
+    assert _select_backends() == BACKENDS
+
+
+def test_select_backends_only_returns_the_requested_backends():
+    assert [b.name for b in _select_backends(["scipy"])] == ["scipy"]
+
+
+def test_select_backends_rejects_an_unknown_name_when_called_directly():
+    # argparse's choices= already rejects an unknown name at the CLI
+    # boundary (test_unknown_backend_name_is_rejected_by_argument_parsing
+    # above); this is the same guard for direct, non-CLI callers of
+    # _select_backends/run_report.
+    with pytest.raises(ValueError):
+        _select_backends(["not-a-real-backend"])
+
+
+def test_available_backends_is_keyed_by_each_backends_own_name():
+    for name, backend in AVAILABLE_BACKENDS.items():
+        assert backend.name == name
+
+
 def test_run_report_writes_only_the_selected_studys_artefact(tmp_path):
     run_report(tmp_path, only=["baseline"])
 
     assert (tmp_path / "baseline.csv").exists()
     assert not (tmp_path / "scaling.csv").exists()
+
+
+def test_run_report_uses_the_default_backend_when_none_selected(tmp_path):
+    run_report(tmp_path, only=["baseline"])
+
+    df = pd.read_csv(tmp_path / "baseline.csv")
+    assert set(df["backend"]) == {"scipy"}
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(shutil.which("dyalogscript") is None, reason="Dyalog APL is not installed")
+def test_run_report_uses_the_selected_backends(tmp_path):
+    run_report(tmp_path, only=["baseline"], backends=["trust-apl"])
+
+    df = pd.read_csv(tmp_path / "baseline.csv")
+    assert set(df["backend"]) == {"trust-apl"}
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(shutil.which("dyalogscript") is None, reason="Dyalog APL is not installed")
+def test_run_report_raises_clearly_when_a_study_does_not_support_the_selected_backend(tmp_path):
+    with pytest.raises(ValueError, match="trust-apl"):
+        run_report(tmp_path, only=["ill_conditioning"], backends=["trust-apl"])
 
 
 def test_report_command_html_flag_defaults_to_false():

@@ -4,6 +4,9 @@ from pathlib import Path
 
 import pandas as pd
 
+from trust_bench.backends import BACKENDS
+from trust_bench.backends.apl_backend import APLBackend
+from trust_bench.backends.scipy_backend import SciPyBackend
 from trust_bench.reporting.capability_matrix import derive_matrix
 from trust_bench.reporting.html_report import build_html_report, save_html_report
 from trust_bench.reporting.plots import plot_metric_vs_sweep, save_figure
@@ -19,29 +22,47 @@ from trust_bench.studies import (
     scaling,
 )
 
+AVAILABLE_BACKENDS = {backend.name: backend for backend in [SciPyBackend(), APLBackend()]}
 
-def _write_baseline(output_dir):
-    df = results_to_dataframe(baseline.standard_start_results(), key_names=["problem_id", "backend"])
+
+def _check_backend_coverage(df, backends, study):
+    """Raise clearly if a selected backend produced zero rows for this
+    study, rather than let a study's own per-pair skip guard (e.g.
+    ill_conditioning.sweep's "method not supported: continue") silently
+    produce an empty report table.
+    """
+    missing = {backend.name for backend in backends} - set(df["backend"])
+    if missing:
+        raise ValueError(f"{study}: no results for backend(s) {', '.join(sorted(missing))}")
+
+
+def _write_baseline(output_dir, backends):
+    df = results_to_dataframe(
+        baseline.standard_start_results(backends=backends), key_names=["problem_id", "backend"]
+    )
+    _check_backend_coverage(df, backends, "baseline")
     save_table(df, output_dir / "baseline.csv")
 
 
-def _write_large_residual(output_dir):
-    results, _ = large_residual.backend_results()
+def _write_large_residual(output_dir, backends):
+    results, _ = large_residual.backend_results(backends=backends)
     df = results_to_dataframe(results, key_names=["rho", "backend"])
+    _check_backend_coverage(df, backends, "large_residual")
     save_table(df, output_dir / "large_residual.csv")
     fig = plot_metric_vs_sweep(df, x="rho", y="grad_norm_final", group="backend", logx=True, logy=True)
     save_figure(fig, output_dir / "large_residual.png")
 
 
-def _write_ill_conditioning(output_dir):
-    df = results_to_dataframe(ill_conditioning.sweep(), key_names=["kappa", "method", "backend"])
+def _write_ill_conditioning(output_dir, backends):
+    df = results_to_dataframe(ill_conditioning.sweep(backends=backends), key_names=["kappa", "method", "backend"])
+    _check_backend_coverage(df, backends, "ill_conditioning")
     save_table(df, output_dir / "ill_conditioning.csv")
 
 
-def _robust_loss_table():
+def _robust_loss_table(backends):
     rows = [
         dict(fraction=fraction, loss=loss, backend=backend, distance=distance)
-        for (fraction, loss, backend), distance in robust_loss.scipy_loss_precision().items()
+        for (fraction, loss, backend), distance in robust_loss.scipy_loss_precision(backends=backends).items()
     ]
     rows += [
         dict(fraction=fraction, loss="irls_tukey", backend="hand-rolled", distance=distance)
@@ -50,34 +71,44 @@ def _robust_loss_table():
     return pd.DataFrame(rows)
 
 
-def _write_robust_loss(output_dir):
-    save_table(_robust_loss_table(), output_dir / "robust_loss.csv")
+def _write_robust_loss(output_dir, backends):
+    df = _robust_loss_table(backends)
+    _check_backend_coverage(df, backends, "robust_loss")
+    save_table(df, output_dir / "robust_loss.csv")
 
 
-def _write_bounded(output_dir):
-    df = results_to_dataframe(bounded.sweep(), key_names=["scenario", "method", "backend"])
+def _write_bounded(output_dir, backends):
+    df = results_to_dataframe(bounded.sweep(backends=backends), key_names=["scenario", "method", "backend"])
+    _check_backend_coverage(df, backends, "bounded")
     save_table(df, output_dir / "bounded.csv")
 
 
-def _write_scaling(output_dir):
-    df = results_to_dataframe(scaling.sweep(), key_names=["scale", "method", "x_scale", "backend"])
+def _write_scaling(output_dir, backends):
+    df = results_to_dataframe(
+        scaling.sweep(backends=backends), key_names=["scale", "method", "x_scale", "backend"]
+    )
+    _check_backend_coverage(df, backends, "scaling")
     save_table(df, output_dir / "scaling.csv")
 
 
-def _write_dimensionality(output_dir):
-    df = results_to_dataframe(dimensionality.sweep(), key_names=["n", "method", "backend"])
+def _write_dimensionality(output_dir, backends):
+    df = results_to_dataframe(dimensionality.sweep(backends=backends), key_names=["n", "method", "backend"])
+    _check_backend_coverage(df, backends, "dimensionality")
     save_table(df, output_dir / "dimensionality.csv")
 
 
-def _write_derivative_source(output_dir):
+def _write_derivative_source(output_dir, backends):
     df = results_to_dataframe(
-        derivative_source.sweep(), key_names=["problem_id", "method", "mode", "backend"]
+        derivative_source.sweep(backends=backends), key_names=["problem_id", "method", "mode", "backend"]
     )
+    _check_backend_coverage(df, backends, "derivative_source")
     save_table(df, output_dir / "derivative_source.csv")
 
 
-def _write_capability_matrix(output_dir):
-    save_table(derive_matrix(), output_dir / "capability_matrix.csv")
+def _write_capability_matrix(output_dir, backends):
+    df = derive_matrix(backends=backends)
+    _check_backend_coverage(df, backends, "capability_matrix")
+    save_table(df, output_dir / "capability_matrix.csv")
 
 
 STUDIES = {
@@ -111,13 +142,24 @@ def _select_studies(only=None, skip=None, skip_slow=False):
     return selected
 
 
-def run_report(output_dir, only=None, skip=None, skip_slow=False, html=False):
+def _select_backends(names=None):
+    if names is None:
+        return BACKENDS
+
+    unknown = set(names) - set(AVAILABLE_BACKENDS)
+    if unknown:
+        raise ValueError(f"Unknown backend/backends: {', '.join(sorted(unknown))}")
+    return [AVAILABLE_BACKENDS[name] for name in names]
+
+
+def run_report(output_dir, only=None, skip=None, skip_slow=False, html=False, backends=None):
     selected = _select_studies(only=only, skip=skip, skip_slow=skip_slow)
+    selected_backends = _select_backends(backends)
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     for name in sorted(selected):
-        STUDIES[name](output_dir)
+        STUDIES[name](output_dir, selected_backends)
 
     if html:
         save_html_report(build_html_report(output_dir), output_dir / "report.html")
@@ -167,6 +209,13 @@ def build_parser():
         help=f"Skip studies that take noticeably longer to run ({', '.join(sorted(SLOW_STUDIES))}).",
     )
     report_parser.add_argument(
+        "--backends",
+        nargs="+",
+        choices=sorted(AVAILABLE_BACKENDS),
+        metavar="BACKEND",
+        help="Run against these backends instead of the default (scipy).",
+    )
+    report_parser.add_argument(
         "--html",
         action="store_true",
         help="Also write report.html, bundling every table and plot into one self-contained page.",
@@ -183,6 +232,7 @@ def main(argv=None):
             skip=args.skip,
             skip_slow=args.skip_slow,
             html=args.html,
+            backends=args.backends,
         )
         print(f"Report artefacts written to {output_dir}")
 
