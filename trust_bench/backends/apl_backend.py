@@ -83,9 +83,9 @@ class APLBackend(Backend):
                 "lm": MethodCapabilities(
                     kind="residuals",
                     losses=frozenset(_LOSS_TO_TRUST),
-                    bounds=False,
+                    bounds=True,
                     analytic_hessian=False,
-                    derivative_modes=frozenset({"analytic"}),
+                    derivative_modes=frozenset({"analytic", "finite-difference"}),
                 )
             }
         )
@@ -105,8 +105,6 @@ class APLBackend(Backend):
             raise ValueError(f"{self.name} has no method {method!r}")
         caps = self.capabilities().methods[method]
 
-        if config.bounds is not None:
-            raise ValueError(f"{method} does not support bounds")
         if config.x_scale is not None:
             raise ValueError(f"{method} does not support x_scale")
         if config.derivative_mode is not None and config.derivative_mode not in caps.derivative_modes:
@@ -123,6 +121,11 @@ class APLBackend(Backend):
             request["max_iter"] = config.max_iter
         if config.tolerance is not None:
             request["tolerance"] = config.tolerance
+        if config.bounds is not None:
+            lower, upper = config.bounds
+            request["bounds"] = [np.asarray(lower, dtype=float).tolist(), np.asarray(upper, dtype=float).tolist()]
+        if config.derivative_mode is not None:
+            request["derivative_mode"] = config.derivative_mode
 
         response = _run_harness(request)
 

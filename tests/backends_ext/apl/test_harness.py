@@ -68,6 +68,38 @@ def test_reports_max_iter_status_when_the_iteration_cap_is_reached(tmp_path):
 
 
 @pytest.mark.slow
+def test_solves_a_bounded_problem_and_stops_at_the_active_boundary(tmp_path):
+    request = {
+        "problem_id": "quadratic",
+        "x0": [1.0, -1.0],
+        "bounds": [[0.5, -10.0], [10.0, 10.0]],
+        "max_iter": 200,
+    }
+    proc, result = _run(request, tmp_path)
+
+    assert proc.returncode == 0
+    assert result["status"] == "CONVERGED"
+    assert result["x_final"][0] == pytest.approx(0.5, abs=1e-4)
+    assert result["x_final"][1] == pytest.approx(0.0, abs=1e-4)
+
+
+@pytest.mark.slow
+def test_finite_difference_mode_uses_more_evaluations_than_analytic(tmp_path):
+    analytic_proc, analytic = _run({"problem_id": "quadratic", "x0": [1.0, -1.0]}, tmp_path)
+    fd_proc, fd = _run(
+        {"problem_id": "quadratic", "x0": [1.0, -1.0], "derivative_mode": "finite-difference"},
+        tmp_path,
+    )
+
+    assert analytic_proc.returncode == 0
+    assert fd_proc.returncode == 0
+    assert analytic["status"] == "CONVERGED"
+    assert fd["status"] == "CONVERGED"
+    assert fd["x_final"] == pytest.approx(analytic["x_final"], abs=1e-4)
+    assert fd["n_feval"] > analytic["n_feval"]
+
+
+@pytest.mark.slow
 def test_reports_error_status_for_an_unknown_problem_id(tmp_path):
     proc, result = _run({"problem_id": "no-such-problem", "x0": [0.0, 0.0]}, tmp_path)
 
