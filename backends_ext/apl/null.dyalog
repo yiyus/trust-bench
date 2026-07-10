@@ -1,0 +1,1 @@
+NULL←⊃⎕JSON'[null]'
