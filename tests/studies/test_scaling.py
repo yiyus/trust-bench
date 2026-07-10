@@ -2,7 +2,7 @@ from trust_bench.backends import BACKENDS
 from trust_bench.backends.scipy_backend import SciPyBackend
 from trust_bench.core.backend import Backend, Capabilities
 from trust_bench.core.provenance import capture
-from trust_bench.core.result import RunStatus
+from trust_bench.core.result import RunResult, RunStatus
 from trust_bench.studies.scaling import METHODS, SCALES, X_SCALES, sweep
 
 _LARGE_DISPARITY = 1e6
@@ -88,3 +88,37 @@ def test_sweep_skips_a_method_a_backend_does_not_support():
         (1.0, "lm", None, "lm-only"),
         (1.0, "lm", "jac", "lm-only"),
     }
+
+
+class _LMWithoutXScaleBackend(Backend):
+    """Wraps SciPyBackend, declares only lm, and raises for any x_scale,
+    mirroring APLBackend exactly: a method the backend does support, but
+    a config field within that method it does not. sweep() has no
+    declarative way to know this in advance (MethodCapabilities has no
+    x_scale field), so it must catch the ValueError Backend.solve raises
+    rather than skip pre-emptively.
+    """
+
+    name = "lm-without-x-scale"
+
+    def __init__(self):
+        self._scipy = SciPyBackend()
+
+    def capabilities(self):
+        methods = self._scipy.capabilities().methods
+        return Capabilities(methods={"lm": methods["lm"]})
+
+    def environment(self):
+        return capture()
+
+    def solve(self, problem, method, start, config):
+        if config.x_scale is not None:
+            raise ValueError(f"{method} does not support x_scale")
+        return self._scipy.solve(problem, method, start, config)
+
+
+def test_sweep_records_a_raised_value_error_as_an_outcome_instead_of_crashing():
+    results = sweep(scales=[1.0], backends=[_LMWithoutXScaleBackend()])
+
+    assert isinstance(results[(1.0, "lm", None, "lm-without-x-scale")], RunResult)
+    assert isinstance(results[(1.0, "lm", "jac", "lm-without-x-scale")], ValueError)
