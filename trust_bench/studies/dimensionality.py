@@ -11,13 +11,17 @@ METHODS = DENSE_METHODS + MATRIX_FREE_METHODS
 
 def sweep(n_values=N_VALUES, methods=METHODS, max_iter=200, backends=BACKENDS):
     """RunResult per (n, method, backend_name): the generalised
-    Rosenbrock at each dimension, solved by every method.
+    Rosenbrock at each dimension, solved by every method. Skips a
+    (method, backend) pair the backend does not support.
     """
     results = {}
     for n in n_values:
         problem = dimensionality.make(n)
         config = RunConfig(max_iter=max_iter)
         for backend in backends:
+            supported = backend.capabilities().methods
             for method in methods:
+                if method not in supported:
+                    continue
                 results[(n, method, backend.name)] = run(problem, backend, method, "standard", config)
     return results

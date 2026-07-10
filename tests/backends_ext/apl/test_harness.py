@@ -175,7 +175,9 @@ def test_evaluate_mode_also_reports_the_hessian(tmp_path):
 
     assert proc.returncode == 0
     assert result["status"] == "OK"
-    assert result["hessian"] == pytest.approx([[665.0, 240.0], [240.0, 100.0]])
+    expected = [[665.0, 240.0], [240.0, 100.0]]
+    for row, expected_row in zip(result["hessian"], expected):
+        assert row == pytest.approx(expected_row)
 
 
 @pytest.mark.slow
