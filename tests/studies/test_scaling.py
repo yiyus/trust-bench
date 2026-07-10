@@ -26,9 +26,14 @@ def test_jac_scaling_needs_more_function_evaluations_at_large_scale_disparity():
     # unscaled Gauss-Newton step already accounts for the scale
     # disparity exactly, and adding SciPy's adaptive x_scale='jac' on
     # top costs extra function evaluations rather than saving any.
-    results = sweep(scales=[_LARGE_DISPARITY])
+    #
+    # lm is excluded: per scipy's own documentation, method "lm"'s
+    # default (x_scale=None) already IS x_scale="jac"; there is no
+    # genuinely unscaled mode for it through this parameter, so passing
+    # x_scale="jac" explicitly is a no-op and gives identical nfev.
+    results = sweep(scales=[_LARGE_DISPARITY], methods=["trf", "dogbox"])
 
-    for method in METHODS:
+    for method in ["trf", "dogbox"]:
         for backend in BACKENDS:
             unscaled = results[(_LARGE_DISPARITY, method, None, backend.name)]
             jac_scaled = results[(_LARGE_DISPARITY, method, "jac", backend.name)]
