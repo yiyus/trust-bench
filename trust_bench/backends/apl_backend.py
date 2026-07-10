@@ -20,6 +20,18 @@ _STATUS = {
     "ERROR": RunStatus.ERROR,
 }
 
+# RunConfig's loss vocabulary (SciPyBackend's own, see scipy_backend.py's
+# _LEAST_SQUARES_LOSSES) mapped to trust's Loss namespace. trust also
+# implements Tukey/Welsch/Fair, but RunConfig has no established name for
+# any of them yet, so they aren't exposed here.
+_LOSS_TO_TRUST = {
+    "linear": "L2",
+    "soft_l1": "SoftL1",
+    "huber": "Huber",
+    "cauchy": "Cauchy",
+    "arctan": "Arctan",
+}
+
 
 def _run_harness(request: dict) -> dict:
     with tempfile.TemporaryDirectory() as tmp:
@@ -70,7 +82,7 @@ class APLBackend(Backend):
             methods={
                 "lm": MethodCapabilities(
                     kind="residuals",
-                    losses=frozenset({"l2"}),
+                    losses=frozenset(_LOSS_TO_TRUST),
                     bounds=False,
                     analytic_hessian=False,
                     derivative_modes=frozenset({"analytic"}),
@@ -91,8 +103,22 @@ class APLBackend(Backend):
     def solve(self, problem, method: str, start: str, config) -> RunResult:
         if method not in self.capabilities().methods:
             raise ValueError(f"{self.name} has no method {method!r}")
+        caps = self.capabilities().methods[method]
 
-        request = {"problem_id": problem.id, "x0": np.asarray(problem.starts[start], dtype=float).tolist()}
+        if config.bounds is not None:
+            raise ValueError(f"{method} does not support bounds")
+        if config.x_scale is not None:
+            raise ValueError(f"{method} does not support x_scale")
+        if config.derivative_mode is not None and config.derivative_mode not in caps.derivative_modes:
+            raise ValueError(f"{method} does not support derivative_mode={config.derivative_mode!r}")
+        if config.loss not in caps.losses:
+            raise ValueError(f"{method} does not support loss={config.loss!r}")
+
+        request = {
+            "problem_id": problem.id,
+            "x0": np.asarray(problem.starts[start], dtype=float).tolist(),
+            "loss": _LOSS_TO_TRUST[config.loss],
+        }
         if config.max_iter is not None:
             request["max_iter"] = config.max_iter
         if config.tolerance is not None:
