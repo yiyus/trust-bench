@@ -32,10 +32,13 @@ def test_plot_metric_vs_sweep_draws_a_single_line_without_a_group(df):
 
 
 def test_plot_metric_vs_sweep_applies_a_log_scale_on_each_axis_independently(df):
-    fig = plot_metric_vs_sweep(df, x="rho", y="grad_norm_final", logy=True)
+    logx_only = plot_metric_vs_sweep(df, x="rho", y="grad_norm_final", logx=True)
+    assert logx_only.axes[0].get_xscale() == "log"
+    assert logx_only.axes[0].get_yscale() == "linear"
 
-    assert fig.axes[0].get_xscale() == "linear"
-    assert fig.axes[0].get_yscale() == "log"
+    logy_only = plot_metric_vs_sweep(df, x="rho", y="grad_norm_final", logy=True)
+    assert logy_only.axes[0].get_xscale() == "linear"
+    assert logy_only.axes[0].get_yscale() == "log"
 
 
 def test_save_figure_writes_a_non_empty_image_file(df, tmp_path):
