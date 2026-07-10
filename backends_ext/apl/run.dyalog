@@ -5,7 +5,12 @@
       raw←⊃⎕NGET input 1
       txt←∊raw,¨⎕UCS 10
       req←⎕JSON txt
-      res←Solve req
+      :If 2=⎕NC'req.mode'
+      :AndIf req.mode≡'evaluate'
+          res←Evaluate req
+      :Else
+          res←Solve req
+      :EndIf
   :Else
       res←ErrorResult ⎕DMX.EM,': ',⎕DMX.Message
   :EndTrap

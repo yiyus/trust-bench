@@ -1,10 +1,11 @@
-∇res←Solve req;calls;lower;cfg;r;final;grad;status
-  :If req.problem_id≢'rosenbrock'
+∇res←Solve req;f;calls;lower;cfg;r;final;grad;status
+  f←NameFor req.problem_id
+  :If 0=≢f
       res←ErrorResult'Unknown problem_id: ',req.problem_id
       :Return
   :EndIf
   calls←0
-  lower←{calls+←1 ⋄ Rosenbrock ⍵}
+  lower←{calls+←1 ⋄ Apply f ⍵}
   cfg←⎕NS''
   cfg.loss←{2=⎕NC'req.loss':req.loss ⋄ 'L2'}⍬
   cfg.toli←{2=⎕NC'req.max_iter':req.max_iter ⋄ 1E3}⍬
