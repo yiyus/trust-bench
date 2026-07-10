@@ -10,12 +10,16 @@ DERIVATIVE_MODES = ["analytic", "finite-difference"]
 def sweep(problems=CANONICAL_PROBLEMS, methods=METHODS, derivative_modes=DERIVATIVE_MODES, backends=BACKENDS):
     """RunResult per (problem_id, method, derivative_mode, backend_name):
     evaluation count and precision, analytic vs finite-difference
-    Jacobian, for the same problem set.
+    Jacobian, for the same problem set. Skips a (method, backend) pair
+    the backend does not support.
     """
     results = {}
     for problem in problems:
         for backend in backends:
+            supported = backend.capabilities().methods
             for method in methods:
+                if method not in supported:
+                    continue
                 for mode in derivative_modes:
                     config = RunConfig(max_iter=200, derivative_mode=mode)
                     results[(problem.id, method, mode, backend.name)] = run(
