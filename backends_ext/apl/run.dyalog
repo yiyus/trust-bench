@@ -14,7 +14,7 @@
   :Else
       res←ErrorResult ⎕DMX.EM,': ',⎕DMX.Message
   :EndTrap
-  (⎕JSON res)⎕NPUT output 1
+  (⎕JSON⍠'HighRank' 'Split'⊢res)⎕NPUT output 1
   ⎕OFF('ERROR'≡res.status)
 ∇
 

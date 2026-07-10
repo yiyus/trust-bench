@@ -10,5 +10,5 @@
   res.status←'OK'
   res.message←NULL
   res.residual←r
-  res.jacobian←↓j
+  res.jacobian←j
 ∇
