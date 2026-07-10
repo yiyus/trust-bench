@@ -12,22 +12,25 @@ from trust_bench.problems import quadratic
 BACKEND = SciPyBackend()
 PROBLEM = quadratic.PROBLEM
 START = "standard"
-MINIMIZE_METHODS = ["BFGS", "L-BFGS-B", "Newton-CG", "trust-exact", "trust-constr"]
+MINIMIZE_METHODS = ["BFGS", "L-BFGS-B", "Newton-CG", "trust-exact", "trust-constr", "trust-krylov"]
 BOUNDED_METHODS = ["L-BFGS-B", "trust-constr"]
-UNBOUNDED_METHODS = ["BFGS", "Newton-CG", "trust-exact"]
+UNBOUNDED_METHODS = ["BFGS", "Newton-CG", "trust-exact", "trust-krylov"]
 # Verified directly against scipy: these three accept jac="2-point" (or no
-# analytic Jacobian at all); Newton-CG and trust-exact both raise
-# "Jacobian is required" when asked to use finite differences.
+# analytic Jacobian at all); Newton-CG, trust-exact, and trust-krylov all
+# raise "Jacobian is required" when asked to use finite differences.
 FD_CAPABLE_METHODS = ["BFGS", "L-BFGS-B", "trust-constr"]
-FD_INCAPABLE_METHODS = ["Newton-CG", "trust-exact"]
+FD_INCAPABLE_METHODS = ["Newton-CG", "trust-exact", "trust-krylov"]
 # Verified via scipy.optimize.show_options(solver="minimize", method=...):
 # the subset of {ftol, xtol, gtol} each method's `options` dict accepts.
+# trust-krylov exposes none of the three: its own show_options lists only
+# `inexact`, with no user-tunable outer convergence tolerance at all.
 TOLERANCE_PARAMS = {
     "BFGS": frozenset({"gtol"}),
     "L-BFGS-B": frozenset({"ftol", "gtol"}),
     "Newton-CG": frozenset({"xtol"}),
     "trust-exact": frozenset({"gtol"}),
     "trust-constr": frozenset({"gtol", "xtol"}),
+    "trust-krylov": frozenset(),
 }
 
 

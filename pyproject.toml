@@ -16,6 +16,11 @@ dev = ["pytest", "ruff", "coverage"]
 [tool.setuptools.packages.find]
 include = ["trust_bench*"]
 
+[tool.pytest.ini_options]
+markers = [
+    "slow: not run by `make test`; included in `make coverage` and CI (deselect with -m \"not slow\")",
+]
+
 [tool.ruff]
 line-length = 100
 exclude = ["prototype"]
