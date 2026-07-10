@@ -59,6 +59,6 @@ def test_derive_matrix_flags_a_declared_measured_mismatch():
     df = derive_matrix(backends=[_LyingAboutBoundsBackend()], fields=["bounds"])
 
     row = df.iloc[0]
-    assert row["declared"] is True
-    assert row["measured"] is False
-    assert row["agrees"] is False
+    assert bool(row["declared"]) is True
+    assert bool(row["measured"]) is False
+    assert bool(row["agrees"]) is False
