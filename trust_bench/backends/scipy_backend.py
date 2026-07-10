@@ -194,6 +194,8 @@ class SciPyBackend(Backend):
             kwargs["max_nfev"] = max_iter
         if config.tolerance is not None:
             kwargs["ftol"] = kwargs["xtol"] = kwargs["gtol"] = config.tolerance
+        if config.x_scale is not None:
+            kwargs["x_scale"] = config.x_scale
 
         result = least_squares(**kwargs)
         r_final = np.asarray(problem.residual(result.x), dtype=float)
