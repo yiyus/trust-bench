@@ -1,6 +1,9 @@
 from trust_bench.backends import BACKENDS
+from trust_bench.backends.scipy_backend import SciPyBackend
+from trust_bench.core.backend import Backend, Capabilities
+from trust_bench.core.provenance import capture
 from trust_bench.core.result import RunStatus
-from trust_bench.problems import CANONICAL_PROBLEMS
+from trust_bench.problems import CANONICAL_PROBLEMS, rosenbrock
 from trust_bench.studies.derivative_source import DERIVATIVE_MODES, METHODS, sweep
 
 _PRECISION_TOL = 1e-6
@@ -51,3 +54,34 @@ def test_finite_difference_needs_more_function_evaluations_than_analytic():
                 finite_difference = results[(problem.id, method, "finite-difference", backend.name)]
                 label = f"{problem.id}/{method}/{backend.name}"
                 assert finite_difference.n_feval > analytic.n_feval, label
+
+
+class _LMOnlyBackend(Backend):
+    """Wraps SciPyBackend but declares only lm, to prove sweep() skips a
+    (method, backend) pair the backend does not support rather than
+    raising the "no method" ValueError Backend.solve itself would.
+    """
+
+    name = "lm-only"
+
+    def __init__(self):
+        self._scipy = SciPyBackend()
+
+    def capabilities(self):
+        methods = self._scipy.capabilities().methods
+        return Capabilities(methods={"lm": methods["lm"]})
+
+    def environment(self):
+        return capture()
+
+    def solve(self, problem, method, start, config):
+        return self._scipy.solve(problem, method, start, config)
+
+
+def test_sweep_skips_a_method_a_backend_does_not_support():
+    results = sweep(problems=[rosenbrock.PROBLEM], backends=[_LMOnlyBackend()])
+
+    assert set(results) == {
+        (rosenbrock.PROBLEM.id, "lm", "analytic", "lm-only"),
+        (rosenbrock.PROBLEM.id, "lm", "finite-difference", "lm-only"),
+    }

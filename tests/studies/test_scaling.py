@@ -1,4 +1,7 @@
 from trust_bench.backends import BACKENDS
+from trust_bench.backends.scipy_backend import SciPyBackend
+from trust_bench.core.backend import Backend, Capabilities
+from trust_bench.core.provenance import capture
 from trust_bench.core.result import RunStatus
 from trust_bench.studies.scaling import METHODS, SCALES, X_SCALES, sweep
 
@@ -54,3 +57,34 @@ def test_jac_scaling_can_converge_to_the_wrong_answer_at_extreme_scale_disparity
             assert jac_scaled.status is RunStatus.CONVERGED, f"{method}/{backend.name}"
             assert jac_scaled.dist_to_opt > 1.0, f"{method}/{backend.name}"
             assert unscaled.dist_to_opt < 1e-6, f"{method}/{backend.name}"
+
+
+class _LMOnlyBackend(Backend):
+    """Wraps SciPyBackend but declares only lm, to prove sweep() skips a
+    (method, backend) pair the backend does not support rather than
+    raising the "no method" ValueError Backend.solve itself would.
+    """
+
+    name = "lm-only"
+
+    def __init__(self):
+        self._scipy = SciPyBackend()
+
+    def capabilities(self):
+        methods = self._scipy.capabilities().methods
+        return Capabilities(methods={"lm": methods["lm"]})
+
+    def environment(self):
+        return capture()
+
+    def solve(self, problem, method, start, config):
+        return self._scipy.solve(problem, method, start, config)
+
+
+def test_sweep_skips_a_method_a_backend_does_not_support():
+    results = sweep(scales=[1.0], backends=[_LMOnlyBackend()])
+
+    assert set(results) == {
+        (1.0, "lm", None, "lm-only"),
+        (1.0, "lm", "jac", "lm-only"),
+    }
