@@ -7,7 +7,7 @@
       req←⎕JSON txt
       res←Solve req
   :Else
-      res←ErrorResult ⎕EM ⎕EN
+      res←ErrorResult ⎕DMX.EM,': ',⎕DMX.Message
   :EndTrap
   (⎕JSON res)⎕NPUT output 1
   ⎕OFF('ERROR'≡res.status)

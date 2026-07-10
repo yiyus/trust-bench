@@ -94,4 +94,5 @@ def test_reports_error_status_for_malformed_input(tmp_path):
 
     assert proc.returncode == 1
     assert result["status"] == "ERROR"
-    assert result["message"] is not None
+    assert result["message"].startswith("DOMAIN ERROR")
+    assert result["message"] != "DOMAIN ERROR"
