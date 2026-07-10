@@ -12,9 +12,17 @@ trap 'rm -f "$script"' EXIT
 {
   echo "⎕SE.Link.Import '#' '$trust_source'"
   cat "$apl_dir/problems/rosenbrock.dyalog"
+  cat "$apl_dir/problems/beale.dyalog"
+  cat "$apl_dir/problems/powell.dyalog"
+  cat "$apl_dir/problems/helical.dyalog"
+  cat "$apl_dir/problems/expdec.dyalog"
+  cat "$apl_dir/problems/quadratic.dyalog"
+  cat "$apl_dir/problems/linear.dyalog"
+  cat "$apl_dir/dispatch.dyalog"
   cat "$apl_dir/null.dyalog"
   cat "$apl_dir/error_result.dyalog"
   cat "$apl_dir/solve.dyalog"
+  cat "$apl_dir/evaluate.dyalog"
   cat "$apl_dir/run.dyalog"
 } > "$script"
 
