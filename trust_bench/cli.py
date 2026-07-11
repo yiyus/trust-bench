@@ -78,6 +78,10 @@ def _robust_loss_table(backends):
         for (fraction, loss, backend), distance in robust_loss.scipy_loss_precision(backends=backends).items()
     ]
     rows += [
+        dict(fraction=fraction, loss=loss, backend=backend, distance=distance)
+        for (fraction, loss, backend), distance in robust_loss.trust_loss_precision(backends=backends).items()
+    ]
+    rows += [
         dict(fraction=fraction, loss="irls_tukey", backend="hand-rolled", distance=distance)
         for fraction, distance in robust_loss.irls_precision().items()
     ]
