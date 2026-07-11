@@ -39,7 +39,8 @@ ParseParametrised←{
     eq←id⍳'='
     rp←id⍳')'
     family←(lp-1)↑id
-    value←⍎eq↓(rp-1)↑id
+    text←eq↓(rp-1)↑id
+    value←⍎'¯'@('-'∘=)⊢text
     family value
 }
 Apply←{name point←⍵ ⋄ ⍎name,' point'}

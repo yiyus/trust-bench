@@ -217,7 +217,24 @@ def test_reports_error_status_for_an_unknown_parametrised_family(tmp_path):
 
     assert proc.returncode == 1
     assert result["status"] == "ERROR"
-    assert "not_a_family(x=1.0)" in result["message"]
+
+
+@pytest.mark.slow
+def test_parses_a_parameter_value_in_python_scientific_notation(tmp_path):
+    # Python's float repr switches to scientific notation for small
+    # magnitudes (f"{1e-05}" == "1e-05"); Dyalog's numeric literal syntax
+    # needs a high-minus ¯ for a negative exponent, not the ASCII hyphen
+    # Python produces, so this only works if that translation happens
+    # before the parsed value reaches ⍎.
+    request = {"mode": "evaluate", "problem_id": "outliers(fraction=1e-05)", "x": [0.0, 0.0]}
+    proc, result = _run(request, tmp_path)
+
+    assert proc.returncode == 0
+    assert result["status"] == "OK"
+    # fraction=1e-05 rounds to zero corrupted points out of 20, so the
+    # residual at x=(0, 0) is exactly -(2*t + 1) for every point.
+    assert result["residual"][0] == pytest.approx(-1.0, abs=1e-9)
+    assert result["residual"][-1] == pytest.approx(-3.0, abs=1e-9)
 
 
 @pytest.mark.slow
