@@ -22,6 +22,7 @@ trap 'rm -f "$script"' EXIT
   cat "$apl_dir/problems/ill_conditioned.dyalog"
   cat "$apl_dir/problems/large_residual.dyalog"
   cat "$apl_dir/problems/outliers.dyalog"
+  cat "$apl_dir/problems/dimensionality.dyalog"
   cat "$apl_dir/dispatch.dyalog"
   cat "$apl_dir/null.dyalog"
   cat "$apl_dir/error_result.dyalog"

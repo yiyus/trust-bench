@@ -19,6 +19,7 @@ HessianNameFor←{
     ''
 }
 FamilyNameFor←{
+    ⍵≡'dimensionality':'Dimensionality'
     ⍵≡'scaling':'Scaling'
     ⍵≡'ill_conditioned':'IllConditioned'
     ⍵≡'large_residual':'LargeResidual'
@@ -26,6 +27,7 @@ FamilyNameFor←{
     ''
 }
 FamilyHessianNameFor←{
+    ⍵≡'dimensionality':'DimensionalityHessian'
     ⍵≡'scaling':'ScalingHessian'
     ⍵≡'ill_conditioned':'IllConditionedHessian'
     ⍵≡'large_residual':'LargeResidualHessian'
