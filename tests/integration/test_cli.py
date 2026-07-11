@@ -83,6 +83,7 @@ _EXPECTED_TABLES = [
     "dimensionality.csv",
     "derivative_source.csv",
     "capability_matrix.csv",
+    "typical.csv",
 ]
 _EXPECTED_PLOTS = [
     "large_residual.png",
