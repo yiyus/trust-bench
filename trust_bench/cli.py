@@ -38,12 +38,23 @@ def _check_backend_coverage(df, backends, study):
         raise ValueError(f"{study}: no results for backend(s) {', '.join(sorted(missing))}")
 
 
+def _baseline_basin_rate_table(backends):
+    return pd.DataFrame(
+        dict(problem_id=problem_id, backend=backend, basin_rate=rate)
+        for (problem_id, backend), rate in baseline.basin_rates(backends=backends).items()
+    )
+
+
 def _write_baseline(output_dir, backends):
     df = results_to_dataframe(
         baseline.standard_start_results(backends=backends), key_names=["problem_id", "backend"]
     )
     _check_backend_coverage(df, backends, "baseline")
     save_table(df, output_dir / "baseline.csv")
+
+    basin_df = _baseline_basin_rate_table(backends)
+    _check_backend_coverage(basin_df, backends, "baseline (basin rates)")
+    save_table(basin_df, output_dir / "baseline_basin_rates.csv")
 
 
 def _write_large_residual(output_dir, backends):
