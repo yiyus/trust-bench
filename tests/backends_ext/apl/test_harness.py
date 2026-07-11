@@ -217,6 +217,7 @@ def test_reports_error_status_for_an_unknown_parametrised_family(tmp_path):
 
     assert proc.returncode == 1
     assert result["status"] == "ERROR"
+    assert "not_a_family(x=1.0)" in result["message"]
 
 
 @pytest.mark.slow
