@@ -9,20 +9,29 @@ from trust_bench.problems.families import outliers
 FRACTIONS = [0.0, 0.1, 0.2, 0.3, 0.4, 0.45, 0.49]
 SCIPY_LOSSES = ["linear", "soft_l1", "huber", "cauchy", "arctan"]
 
-_METHOD = "trf"
+# One explicit method per backend, not a capability-driven search:
+# scipy declares more than one method that would technically satisfy
+# every swept loss ("trf" and "dogbox" both do), so picking a method
+# per backend explicitly is more legible than resolving that ambiguity
+# implicitly.
+_METHOD_FOR_BACKEND = {"scipy": "trf", "trust-apl": "lm"}
 _TUKEY_C = 4.685
 
 
 def scipy_loss_precision(fractions=FRACTIONS, losses=SCIPY_LOSSES, backends=BACKENDS):
     """Distance from the true (uncorrupted) parameters per outlier
-    fraction, loss, and backend.
+    fraction, loss, and backend. Skips a backend this study has no
+    method mapping for.
     """
     precision = {}
     for fraction in fractions:
         problem = outliers.make(fraction)
         for backend in backends:
+            method = _METHOD_FOR_BACKEND.get(backend.name)
+            if method is None:
+                continue
             for loss in losses:
-                result = run(problem, backend, _METHOD, "standard", RunConfig(max_iter=200, loss=loss))
+                result = run(problem, backend, method, "standard", RunConfig(max_iter=200, loss=loss))
                 x_final = np.asarray(result.x_final, dtype=float)
                 precision[(fraction, loss, backend.name)] = float(
                     np.linalg.norm(x_final - outliers.TRUE_PARAMETERS)
