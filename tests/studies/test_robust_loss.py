@@ -1,4 +1,6 @@
 from trust_bench.backends import BACKENDS
+from trust_bench.core.backend import Backend, Capabilities, MethodCapabilities
+from trust_bench.core.provenance import capture
 from trust_bench.problems.families import outliers
 from trust_bench.studies.robust_loss import (
     FRACTIONS,
@@ -7,12 +9,36 @@ from trust_bench.studies.robust_loss import (
     scipy_loss_precision,
 )
 
-# The APL backend does not exist yet, so the hand-rolled IRLS reference
-# below stands in for its redescending losses: it is the second
-# comparison point against SciPy's built-in losses, not yet the third
-# alongside a redescending APL implementation.
-
 _HIGH_CONTAMINATION = 0.4
+
+
+class _UnmappedBackend(Backend):
+    """A backend name scipy_loss_precision has no method mapping for.
+    Proves it is skipped rather than raising, mirroring bounded.py's
+    own skip-guard pattern for a backend/method combination the study
+    doesn't know how to drive.
+    """
+
+    name = "unmapped-backend"
+
+    def capabilities(self):
+        return Capabilities(
+            methods={
+                "trf": MethodCapabilities(
+                    kind="residuals",
+                    losses=frozenset(SCIPY_LOSSES),
+                    bounds=True,
+                    analytic_hessian=False,
+                    derivative_modes=frozenset({"analytic"}),
+                )
+            }
+        )
+
+    def environment(self):
+        return capture()
+
+    def solve(self, problem, method, start, config):
+        raise AssertionError(f"{self.name} should have been skipped, not solved")
 
 
 def test_scipy_loss_precision_is_recorded_across_the_fraction_and_loss_sweep():
@@ -45,6 +71,12 @@ def test_irls_recovers_true_parameters_past_the_contamination_level_where_every_
     assert irls_distance < 1e-6
     for (fraction, loss, backend_name), distance in scipy_distances.items():
         assert distance > 0.1, f"loss={loss} on {backend_name} unexpectedly survived fraction={fraction}"
+
+
+def test_scipy_loss_precision_skips_a_backend_it_has_no_method_mapping_for():
+    precision = scipy_loss_precision(fractions=[0.0], backends=[_UnmappedBackend()])
+
+    assert precision == {}
 
 
 def test_outliers_true_parameters_are_the_fixed_underlying_trend_not_the_biased_l2_optimum():
