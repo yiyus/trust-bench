@@ -18,6 +18,7 @@ from trust_bench.cli import (
 from trust_bench.core.backend import Backend, Capabilities, MethodCapabilities
 from trust_bench.core.provenance import capture, harness_git_sha
 from trust_bench.core.result import RunResult, RunStatus
+from trust_bench.problems import CANONICAL_PROBLEMS
 
 
 class _AlwaysErrorsBackend(Backend):
@@ -73,6 +74,7 @@ class _AlwaysErrorsBackend(Backend):
 
 _EXPECTED_TABLES = [
     "baseline.csv",
+    "baseline_basin_rates.csv",
     "large_residual.csv",
     "ill_conditioning.csv",
     "robust_loss.csv",
@@ -214,6 +216,15 @@ def test_run_report_uses_the_default_backend_when_none_selected(tmp_path):
 
     df = pd.read_csv(tmp_path / "baseline.csv")
     assert set(df["backend"]) == {"scipy"}
+
+
+def test_run_report_writes_baselines_basin_of_attraction_rate_table(tmp_path):
+    run_report(tmp_path, only=["baseline"])
+
+    df = pd.read_csv(tmp_path / "baseline_basin_rates.csv")
+    assert set(df.columns) >= {"problem_id", "backend", "basin_rate"}
+    assert len(df) == len(CANONICAL_PROBLEMS)
+    assert df["basin_rate"].between(0.0, 1.0).all()
 
 
 @pytest.mark.slow
