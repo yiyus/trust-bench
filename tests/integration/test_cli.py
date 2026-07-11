@@ -84,7 +84,14 @@ _EXPECTED_TABLES = [
     "derivative_source.csv",
     "capability_matrix.csv",
 ]
-_EXPECTED_PLOTS = ["large_residual.png"]
+_EXPECTED_PLOTS = [
+    "large_residual.png",
+    "ill_conditioning.png",
+    "dimensionality.png",
+    "scaling.png",
+    "robust_loss.png",
+    "capability_matrix.png",
+]
 
 
 def test_help_is_available_and_exits_cleanly():
