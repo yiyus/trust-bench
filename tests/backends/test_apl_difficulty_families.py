@@ -17,8 +17,10 @@ pytestmark = [
 BACKEND = APLBackend()
 START = "standard"
 
-# One representative parameter value per family, matching
-# tests/problems/test_families.py's own parity-check values.
+# One representative parameter value per family. scaling, large_residual
+# and outliers match tests/problems/test_families.py's own parity-check
+# values; ill_conditioned's kappa=100.0 matches ill_conditioning.py's own
+# study KAPPAS list instead (that file's parity checks use 1e3, not 1e2).
 DIFFICULTY_FAMILY_PROBLEMS = [
     scaling.make(s=10.0),
     ill_conditioned.make(kappa=100.0),

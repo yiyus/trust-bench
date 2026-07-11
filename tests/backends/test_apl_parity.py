@@ -12,9 +12,11 @@ pytestmark = [
     pytest.mark.skipif(shutil.which("dyalogscript") is None, reason="Dyalog APL is not installed"),
 ]
 
-# One representative parameter value per difficulty family, matching the
-# values already used in tests/problems/test_families.py's own parity
-# checks, rather than inventing new ones.
+# One representative parameter value per difficulty family. scaling,
+# large_residual and outliers match tests/problems/test_families.py's
+# own parity-check values; ill_conditioned's kappa=100.0 matches
+# ill_conditioning.py's own study KAPPAS list instead (that file's
+# parity checks use 1e3, not 1e2).
 DIFFICULTY_FAMILY_PROBLEMS = [
     scaling.make(s=10.0),
     ill_conditioned.make(kappa=100.0),
