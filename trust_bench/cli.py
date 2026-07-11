@@ -9,7 +9,7 @@ from trust_bench.backends.apl_backend import APLBackend
 from trust_bench.backends.scipy_backend import SciPyBackend
 from trust_bench.reporting.capability_matrix import derive_matrix
 from trust_bench.reporting.html_report import build_html_report, save_html_report
-from trust_bench.reporting.plots import plot_metric_vs_sweep, save_figure
+from trust_bench.reporting.plots import plot_capability_matrix, plot_metric_vs_sweep, save_figure
 from trust_bench.reporting.tables import results_to_dataframe, save_table
 from trust_bench.studies import (
     baseline,
@@ -70,6 +70,16 @@ def _write_ill_conditioning(output_dir, backends):
     df = results_to_dataframe(ill_conditioning.sweep(backends=backends), key_names=["kappa", "method", "backend"])
     _check_backend_coverage(df, backends, "ill_conditioning")
     save_table(df, output_dir / "ill_conditioning.csv")
+    fig = plot_metric_vs_sweep(
+        df,
+        x="kappa",
+        y="dist_to_opt",
+        group=["method", "backend"],
+        logx=True,
+        logy=True,
+        status_col="status",
+    )
+    save_figure(fig, output_dir / "ill_conditioning.png")
 
 
 def _robust_loss_table(backends):
@@ -92,6 +102,8 @@ def _write_robust_loss(output_dir, backends):
     df = _robust_loss_table(backends)
     _check_backend_coverage(df, backends, "robust_loss")
     save_table(df, output_dir / "robust_loss.csv")
+    fig = plot_metric_vs_sweep(df, x="fraction", y="distance", group=["loss", "backend"])
+    save_figure(fig, output_dir / "robust_loss.png")
 
 
 def _write_bounded(output_dir, backends):
@@ -106,12 +118,18 @@ def _write_scaling(output_dir, backends):
     )
     _check_backend_coverage(df, backends, "scaling")
     save_table(df, output_dir / "scaling.csv")
+    fig = plot_metric_vs_sweep(
+        df, x="scale", y="grad_norm_final", group=["method", "x_scale", "backend"], logx=True, logy=True
+    )
+    save_figure(fig, output_dir / "scaling.png")
 
 
 def _write_dimensionality(output_dir, backends):
     df = results_to_dataframe(dimensionality.sweep(backends=backends), key_names=["n", "method", "backend"])
     _check_backend_coverage(df, backends, "dimensionality")
     save_table(df, output_dir / "dimensionality.csv")
+    fig = plot_metric_vs_sweep(df, x="n", y="dist_to_opt", group=["method", "backend"], logx=True)
+    save_figure(fig, output_dir / "dimensionality.png")
 
 
 def _write_derivative_source(output_dir, backends):
@@ -126,6 +144,8 @@ def _write_capability_matrix(output_dir, backends):
     df = derive_matrix(backends=backends)
     _check_backend_coverage(df, backends, "capability_matrix")
     save_table(df, output_dir / "capability_matrix.csv")
+    fig = plot_capability_matrix(df)
+    save_figure(fig, output_dir / "capability_matrix.png")
 
 
 STUDIES = {
