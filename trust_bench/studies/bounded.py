@@ -7,11 +7,11 @@ from trust_bench.core.config import RunConfig
 from trust_bench.core.runner import run
 from trust_bench.problems import quadratic
 
-# Mirrors scipy_backend.py's own _LEAST_SQUARES_METHODS and
-# reporting/capability_matrix.py's _LEAST_SQUARES_BOUNDS_PROBE split:
-# these methods (and trust-apl's "lm") take a (lower, upper) array pair,
-# while scipy's minimize-family methods take a per-dimension (low, high)
-# pair list instead.
+# scipy's own least-squares method names (mirrors scipy_backend.py's
+# own _LEAST_SQUARES_METHODS and reporting/capability_matrix.py's
+# _LEAST_SQUARES_BOUNDS_PROBE split). Only scipy itself needs this set:
+# every other backend's methods take a (lower, upper) array pair
+# regardless of name (see _bounds_for).
 _LEAST_SQUARES_METHODS = frozenset({"lm", "trf", "dogbox"})
 
 # quadratic.PROBLEM's unconstrained optimum is (0, 0); a lower bound of
@@ -29,10 +29,16 @@ SCENARIOS = {
 }
 
 
-def _bounds_for(method, active):
-    if method in _LEAST_SQUARES_METHODS:
-        return _LEAST_SQUARES_ACTIVE_BOUNDS if active else _LEAST_SQUARES_INACTIVE_BOUNDS
-    return _MINIMIZE_ACTIVE_BOUNDS if active else _MINIMIZE_INACTIVE_BOUNDS
+def _bounds_for(backend, method, active):
+    # scipy is the one backend with a genuine per-method split (it
+    # wraps two different underlying scipy call paths, least_squares
+    # and minimize); every other backend (trust-apl included) uses the
+    # least-squares-style format universally for all of its own
+    # methods, regardless of whether the method's name also happens to
+    # exist in scipy's minimize family.
+    if backend.name == "scipy" and method not in _LEAST_SQUARES_METHODS:
+        return _MINIMIZE_ACTIVE_BOUNDS if active else _MINIMIZE_INACTIVE_BOUNDS
+    return _LEAST_SQUARES_ACTIVE_BOUNDS if active else _LEAST_SQUARES_INACTIVE_BOUNDS
 
 
 def sweep(scenarios=SCENARIOS, backends=BACKENDS):
@@ -57,7 +63,7 @@ def sweep(scenarios=SCENARIOS, backends=BACKENDS):
             for method, caps in backend.capabilities().methods.items():
                 if not caps.bounds:
                     continue
-                config = RunConfig(max_iter=200, bounds=_bounds_for(method, scenario["active"]))
+                config = RunConfig(max_iter=200, bounds=_bounds_for(backend, method, scenario["active"]))
                 try:
                     outcomes[(name, method, backend.name)] = run(
                         problem, backend, method, "scenario", config

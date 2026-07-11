@@ -17,7 +17,15 @@ def _measure_bounds(backend, method):
     rejected or ignored, probed directly against the trivial quadratic
     problem.
     """
-    bounds = _LEAST_SQUARES_BOUNDS_PROBE if method in _LEAST_SQUARES_METHODS else _MINIMIZE_BOUNDS_PROBE
+    # scipy is the one backend with a genuine per-method split (it
+    # wraps two different underlying scipy call paths, least_squares
+    # and minimize); every other backend uses the least-squares-style
+    # probe universally, regardless of whether the method's name also
+    # happens to exist in scipy's minimize family.
+    if backend.name == "scipy" and method not in _LEAST_SQUARES_METHODS:
+        bounds = _MINIMIZE_BOUNDS_PROBE
+    else:
+        bounds = _LEAST_SQUARES_BOUNDS_PROBE
     try:
         result = backend.solve(
             quadratic.PROBLEM, method, "standard", RunConfig(max_iter=100, bounds=bounds)
