@@ -1,12 +1,15 @@
 from trust_bench.backends import BACKENDS
+from trust_bench.backends.scipy_backend import SciPyBackend
 from trust_bench.core.backend import Backend, Capabilities, MethodCapabilities
 from trust_bench.core.provenance import capture
 from trust_bench.problems.families import outliers
 from trust_bench.studies.robust_loss import (
     FRACTIONS,
     SCIPY_LOSSES,
+    TRUST_LOSSES,
     irls_precision,
     scipy_loss_precision,
+    trust_loss_precision,
 )
 
 _HIGH_CONTAMINATION = 0.4
@@ -75,6 +78,32 @@ def test_irls_recovers_true_parameters_past_the_contamination_level_where_every_
 
 def test_scipy_loss_precision_skips_a_backend_it_has_no_method_mapping_for():
     precision = scipy_loss_precision(fractions=[0.0], backends=[_UnmappedBackend()])
+
+    assert precision == {}
+
+
+def test_scipy_declares_none_of_trusts_redescending_losses():
+    # least_squares has no equivalent beyond cauchy/arctan; this is
+    # already true by omission from _LEAST_SQUARES_LOSSES, checked
+    # directly here so a future change can't silently reintroduce one
+    # of these names into scipy's own declared vocabulary by mistake.
+    losses = SciPyBackend().capabilities().methods["trf"].losses
+
+    assert not (set(TRUST_LOSSES) & losses)
+
+
+def test_trust_loss_precision_is_empty_when_no_backend_supports_it():
+    # The default BACKENDS is scipy-only, which has no equivalent for
+    # any of trust's own redescending losses; skipped, not raised,
+    # matching scipy_loss_precision's own skip-guard for an unmapped
+    # backend.
+    precision = trust_loss_precision(fractions=[0.0])
+
+    assert precision == {}
+
+
+def test_trust_loss_precision_skips_a_backend_it_has_no_method_mapping_for():
+    precision = trust_loss_precision(fractions=[0.0], backends=[_UnmappedBackend()])
 
     assert precision == {}
 
