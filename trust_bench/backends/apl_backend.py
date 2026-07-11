@@ -33,17 +33,41 @@ _LOSS_TO_TRUST = {
 }
 
 
+_TIMEOUT_SECONDS = 60
+
+# Matches error_result.dyalog's ErrorResult field set exactly, so a
+# subprocess timeout is indistinguishable, from the caller's side, from
+# any other harness-reported ERROR (evaluate_problem's status check and
+# solve()'s _STATUS lookup both handle it the same way).
+def _timeout_result(message: str) -> dict:
+    return {
+        "problem_id": None,
+        "status": "ERROR",
+        "message": message,
+        "x_final": None,
+        "cost_final": None,
+        "n_iter": None,
+        "n_feval": None,
+        "n_jeval": None,
+        "n_heval": None,
+        "grad_norm_final": None,
+    }
+
+
 def _run_harness(request: dict) -> dict:
     with tempfile.TemporaryDirectory() as tmp:
         input_path = Path(tmp) / "request.json"
         output_path = Path(tmp) / "result.json"
         input_path.write_text(json.dumps(request))
-        subprocess.run(
-            ["bash", str(_HARNESS), str(input_path), str(output_path)],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
+        try:
+            subprocess.run(
+                ["bash", str(_HARNESS), str(input_path), str(output_path)],
+                capture_output=True,
+                text=True,
+                timeout=_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired:
+            return _timeout_result(f"harness did not complete within {_TIMEOUT_SECONDS}s")
         return json.loads(output_path.read_text())
 
 
