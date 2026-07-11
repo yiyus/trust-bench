@@ -18,4 +18,29 @@ HessianNameFor←{
     ⍵≡'linear':'LinearHessian'
     ''
 }
+FamilyNameFor←{
+    ⍵≡'scaling':'Scaling'
+    ⍵≡'ill_conditioned':'IllConditioned'
+    ⍵≡'large_residual':'LargeResidual'
+    ⍵≡'outliers':'Outliers'
+    ''
+}
+FamilyHessianNameFor←{
+    ⍵≡'scaling':'ScalingHessian'
+    ⍵≡'ill_conditioned':'IllConditionedHessian'
+    ⍵≡'large_residual':'LargeResidualHessian'
+    ⍵≡'outliers':'OutliersHessian'
+    ''
+}
+ParseParametrised←{
+    id←⍵
+    ~'('∊id:⍬
+    lp←id⍳'('
+    eq←id⍳'='
+    rp←id⍳')'
+    family←(lp-1)↑id
+    value←⍎eq↓(rp-1)↑id
+    family value
+}
 Apply←{name point←⍵ ⋄ ⍎name,' point'}
+ApplyParam←{name param point←⍵ ⋄ ⍎'param ',name,' point'}

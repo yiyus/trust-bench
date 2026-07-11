@@ -173,8 +173,10 @@ def test_run_report_uses_the_selected_backends(tmp_path):
 @pytest.mark.slow
 @pytest.mark.skipif(shutil.which("dyalogscript") is None, reason="Dyalog APL is not installed")
 def test_run_report_raises_clearly_when_a_study_does_not_support_the_selected_backend(tmp_path):
+    # dimensionality's family (unlike ill_conditioned's) has no native APL
+    # port yet, so trust-apl still produces zero real rows for it.
     with pytest.raises(ValueError, match="trust-apl"):
-        run_report(tmp_path, only=["ill_conditioning"], backends=["trust-apl"])
+        run_report(tmp_path, only=["dimensionality"], backends=["trust-apl"])
 
 
 def test_report_command_html_flag_defaults_to_false():
