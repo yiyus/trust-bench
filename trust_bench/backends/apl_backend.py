@@ -20,16 +20,18 @@ _STATUS = {
     "ERROR": RunStatus.ERROR,
 }
 
-# RunConfig's loss vocabulary (SciPyBackend's own, see scipy_backend.py's
-# _LEAST_SQUARES_LOSSES) mapped to trust's Loss namespace. trust also
-# implements Tukey/Welsch/Fair, but RunConfig has no established name for
-# any of them yet, so they aren't exposed here.
+# RunConfig's loss vocabulary mapped to trust's Loss namespace: the five
+# scipy also has (see scipy_backend.py's _LEAST_SQUARES_LOSSES), plus
+# trust's own redescending losses scipy has no equivalent for.
 _LOSS_TO_TRUST = {
     "linear": "L2",
     "soft_l1": "SoftL1",
     "huber": "Huber",
     "cauchy": "Cauchy",
     "arctan": "Arctan",
+    "tukey": "Tukey",
+    "welsch": "Welsch",
+    "fair": "Fair",
 }
 
 
