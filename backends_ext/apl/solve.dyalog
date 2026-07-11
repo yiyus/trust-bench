@@ -1,8 +1,17 @@
-∇res←Solve req;f;hf;method;calls;hcalls;fd;lower;cfg;r;finalpair;grad;status
+∇res←Solve req;f;hf;method;calls;hcalls;fd;lower;cfg;r;finalpair;grad;status;parsed;family;param;isParam
   f←NameFor req.problem_id
+  isParam←0
   :If 0=≢f
-      res←ErrorResult'Unknown problem_id: ',req.problem_id
-      :Return
+      parsed←ParseParametrised req.problem_id
+      :If 0≠≢parsed
+          family param←parsed
+          f←FamilyNameFor family
+          isParam←1
+      :EndIf
+      :If 0=≢f
+          res←ErrorResult'Unknown problem_id: ',req.problem_id
+          :Return
+      :EndIf
   :EndIf
   method←{2=⎕NC'req.method':req.method ⋄ 'lm'}⍬
   :If ~(method≡'lm')∨(method≡'BFGS')∨(method≡'trust-exact')
@@ -16,23 +25,47 @@
       fd←req.derivative_mode≡'finite-difference'
   :EndIf
   :If method≡'lm'
-      lower←{calls+←1 ⋄ result←Apply f ⍵ ⋄ fd:1⊃result ⋄ result}
+      :If isParam
+          lower←{calls+←1 ⋄ result←ApplyParam f param ⍵ ⋄ fd:1⊃result ⋄ result}
+      :Else
+          lower←{calls+←1 ⋄ result←Apply f ⍵ ⋄ fd:1⊃result ⋄ result}
+      :EndIf
   :ElseIf method≡'BFGS'
-      lower←{
-          calls+←1
-          r j←Apply f ⍵
-          fd:0.5×+/r×r
-          (0.5×+/r×r)((⍉j)+.×r)
-      }
+      :If isParam
+          lower←{
+              calls+←1
+              r j←ApplyParam f param ⍵
+              fd:0.5×+/r×r
+              (0.5×+/r×r)((⍉j)+.×r)
+          }
+      :Else
+          lower←{
+              calls+←1
+              r j←Apply f ⍵
+              fd:0.5×+/r×r
+              (0.5×+/r×r)((⍉j)+.×r)
+          }
+      :EndIf
   :Else
-      hf←HessianNameFor req.problem_id
-      lower←{
-          calls+←1
-          r j←Apply f ⍵
-          hcalls+←1
-          hess←Apply hf ⍵
-          (0.5×+/r×r)hess((⍉j)+.×r)
-      }
+      :If isParam
+          hf←FamilyHessianNameFor family
+          lower←{
+              calls+←1
+              r j←ApplyParam f param ⍵
+              hcalls+←1
+              hess←ApplyParam hf param ⍵
+              (0.5×+/r×r)hess((⍉j)+.×r)
+          }
+      :Else
+          hf←HessianNameFor req.problem_id
+          lower←{
+              calls+←1
+              r j←Apply f ⍵
+              hcalls+←1
+              hess←Apply hf ⍵
+              (0.5×+/r×r)hess((⍉j)+.×r)
+          }
+      :EndIf
   :EndIf
   cfg←⎕NS''
   cfg.loss←{2=⎕NC'req.loss':req.loss ⋄ 'L2'}⍬
@@ -45,7 +78,11 @@
   :EndIf
   r←lower Min(req.x0)cfg
   calls←calls+1
-  finalpair←Apply f r.p
+  :If isParam
+      finalpair←ApplyParam f param r.p
+  :Else
+      finalpair←Apply f r.p
+  :EndIf
   grad←(⍉2⊃finalpair)+.×1⊃finalpair
   :If r.iter≥r.toli
       status←'MAX_ITER'

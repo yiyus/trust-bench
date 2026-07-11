@@ -15,6 +15,61 @@ from trust_bench.cli import (
     main,
     run_report,
 )
+from trust_bench.core.backend import Backend, Capabilities, MethodCapabilities
+from trust_bench.core.provenance import capture, harness_git_sha
+from trust_bench.core.result import RunResult, RunStatus
+
+
+class _AlwaysErrorsBackend(Backend):
+    """Declares support for "lm" but never actually solves anything: every
+    call reports RunStatus.ERROR, regardless of problem. Models a backend
+    whose capabilities are declared but whose harness cannot recognise a
+    given study's problem ids - the scenario _check_backend_coverage
+    exists to catch - without depending on which real problem families a
+    real backend happens to have ported at any given time.
+    """
+
+    name = "always-errors"
+
+    def capabilities(self):
+        return Capabilities(
+            methods={
+                "lm": MethodCapabilities(
+                    kind="residuals",
+                    losses=frozenset({"linear"}),
+                    bounds=False,
+                    analytic_hessian=False,
+                    derivative_modes=frozenset({"analytic"}),
+                )
+            }
+        )
+
+    def environment(self):
+        return capture()
+
+    def solve(self, problem, method, start, config):
+        return RunResult(
+            problem_id=problem.id,
+            backend=self.name,
+            method=method,
+            start=start,
+            x_final=None,
+            cost_final=None,
+            dist_to_opt=None,
+            cost_gap=None,
+            grad_norm_final=None,
+            status=RunStatus.ERROR,
+            n_iter=None,
+            n_feval=None,
+            n_jeval=None,
+            n_heval=None,
+            trace=None,
+            timing=None,
+            config=config,
+            provenance=self.environment(),
+            harness_git_sha=harness_git_sha(),
+            timestamp="2026-01-01T00:00:00Z",
+        )
 
 _EXPECTED_TABLES = [
     "baseline.csv",
@@ -170,11 +225,12 @@ def test_run_report_uses_the_selected_backends(tmp_path):
     assert set(df["backend"]) == {"trust-apl"}
 
 
-@pytest.mark.slow
-@pytest.mark.skipif(shutil.which("dyalogscript") is None, reason="Dyalog APL is not installed")
-def test_run_report_raises_clearly_when_a_study_does_not_support_the_selected_backend(tmp_path):
-    with pytest.raises(ValueError, match="trust-apl"):
-        run_report(tmp_path, only=["ill_conditioning"], backends=["trust-apl"])
+def test_run_report_raises_clearly_when_a_study_does_not_support_the_selected_backend(tmp_path, monkeypatch):
+    stub = _AlwaysErrorsBackend()
+    monkeypatch.setitem(AVAILABLE_BACKENDS, stub.name, stub)
+
+    with pytest.raises(ValueError, match=stub.name):
+        run_report(tmp_path, only=["baseline"], backends=[stub.name])
 
 
 def test_report_command_html_flag_defaults_to_false():
