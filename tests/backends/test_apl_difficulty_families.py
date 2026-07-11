@@ -1,13 +1,14 @@
 import dataclasses
 import shutil
+import time
 
 import numpy as np
 import pytest
 
-from trust_bench.backends.apl_backend import APLBackend
+from trust_bench.backends.apl_backend import APLBackend, evaluate_problem
 from trust_bench.core.config import RunConfig
 from trust_bench.core.result import RunStatus
-from trust_bench.problems.families import ill_conditioned, large_residual, outliers, scaling
+from trust_bench.problems.families import dimensionality, ill_conditioned, large_residual, outliers, scaling
 
 pytestmark = [
     pytest.mark.slow,
@@ -43,3 +44,28 @@ def test_solve_reports_unknown_problem_id_for_an_unrecognised_parametrised_famil
     result = BACKEND.solve(problem, "lm", START, RunConfig(max_iter=200))
 
     assert result.status is RunStatus.ERROR
+
+
+# dimensionality.py's own study only ever solves this family with its
+# dense-Hessian methods (trust-exact, BFGS), never "lm" - matching that
+# rather than reusing the "lm" convergence test above.
+@pytest.mark.parametrize("method", ["trust-exact", "BFGS"])
+def test_solve_dimensionality_converges_for_trust_exact_and_bfgs(method):
+    problem = dimensionality.make(n=10)
+
+    result = BACKEND.solve(problem, method, START, RunConfig(max_iter=200))
+
+    assert result.status is RunStatus.CONVERGED, result.status
+    assert np.allclose(result.x_final, problem.optima[0].x_star, atol=1e-3)
+
+
+def test_evaluate_at_n_1000_completes_quickly():
+    # The port must not become the dominant cost of running the study at
+    # the largest n it sweeps; a generous bound that would still fail
+    # outright on an accidentally quadratic-in-n-squared construction.
+    problem = dimensionality.make(n=1000)
+    start = time.perf_counter()
+    evaluate_problem(problem.id, problem.probe_points[0])
+    elapsed = time.perf_counter() - start
+
+    assert elapsed < 10.0, elapsed

@@ -5,7 +5,7 @@ import pytest
 
 from trust_bench.backends.apl_backend import evaluate_problem
 from trust_bench.problems import CANONICAL_PROBLEMS
-from trust_bench.problems.families import ill_conditioned, large_residual, outliers, scaling
+from trust_bench.problems.families import dimensionality, ill_conditioned, large_residual, outliers, scaling
 
 pytestmark = [
     pytest.mark.slow,
@@ -16,12 +16,14 @@ pytestmark = [
 # large_residual and outliers match tests/problems/test_families.py's
 # own parity-check values; ill_conditioned's kappa=100.0 matches
 # ill_conditioning.py's own study KAPPAS list instead (that file's
-# parity checks use 1e3, not 1e2).
+# parity checks use 1e3, not 1e2); dimensionality's n=10 matches
+# tests/problems/test_families.py's own DIMENSIONALITY_NS_PARITY.
 DIFFICULTY_FAMILY_PROBLEMS = [
     scaling.make(s=10.0),
     ill_conditioned.make(kappa=100.0),
     large_residual.make(rho=10.0),
     outliers.make(fraction=0.3),
+    dimensionality.make(n=10),
 ]
 
 

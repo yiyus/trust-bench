@@ -239,6 +239,35 @@ def test_parses_a_parameter_value_in_python_scientific_notation(tmp_path):
 
 
 @pytest.mark.slow
+def test_solves_dimensionality_with_the_trust_exact_method(tmp_path):
+    request = {
+        "problem_id": "dimensionality(n=10)",
+        "x0": [-1.2, 1.0, -1.2, 1.0, -1.2, 1.0, -1.2, 1.0, -1.2, 1.0],
+        "method": "trust-exact",
+    }
+    proc, result = _run(request, tmp_path)
+
+    assert proc.returncode == 0
+    assert result["status"] == "CONVERGED"
+    assert result["x_final"] == pytest.approx([1.0] * 10, abs=1e-4)
+
+
+@pytest.mark.slow
+def test_evaluate_mode_reports_the_dimensionality_hessian_at_n_10(tmp_path):
+    request = {
+        "mode": "evaluate",
+        "problem_id": "dimensionality(n=10)",
+        "x": [1.0] * 10,
+    }
+    proc, result = _run(request, tmp_path)
+
+    assert proc.returncode == 0
+    assert result["status"] == "OK"
+    assert result["hessian"][0][0:2] == pytest.approx([401.0, -200.0])
+    assert result["hessian"][1][0:2] == pytest.approx([-200.0, 100.0])
+
+
+@pytest.mark.slow
 def test_reports_error_status_for_malformed_input(tmp_path):
     input_path = tmp_path / "request.json"
     output_path = tmp_path / "result.json"
