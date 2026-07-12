@@ -1,4 +1,5 @@
 import matplotlib
+import numpy as np
 
 matplotlib.use("Agg")
 
@@ -49,6 +50,43 @@ def plot_metric_vs_sweep(df, x, y, group=None, logx=False, logy=False, status_co
         ax.set_yscale("log")
     ax.set_xlabel(x)
     ax.set_ylabel(y)
+    return fig
+
+
+def plot_metric_by_category(df, category, y, group, logy=False, status_col=None):
+    """Grouped bar chart: one cluster per unique value of category, one
+    bar per unique combination of group columns within each cluster.
+    For categorical, non-sweep data (e.g. the typical study's one
+    problem x method x backend per row, with no continuous axis to
+    plot against), unlike plot_metric_vs_sweep's line-per-sweep-value
+    shape. A bar whose status_col value isn't "CONVERGED" is hatched,
+    mirroring plot_metric_vs_sweep's own non-CONVERGED marker.
+    """
+    df = df.copy()
+    df["_group"] = df[group].astype(str).agg("/".join, axis=1) if isinstance(group, list) else df[group].astype(str)
+    categories = sorted(df[category].unique())
+    groups = sorted(df["_group"].unique())
+
+    fig, ax = plt.subplots(figsize=(max(6, len(categories) * 2.2), 4.5))
+    x = np.arange(len(categories))
+    width = 0.8 / max(len(groups), 1)
+    for i, group_name in enumerate(groups):
+        subset = df[df["_group"] == group_name].set_index(category)
+        values = subset[y].reindex(categories)
+        bars = ax.bar(x + i * width - 0.4 + width / 2, values, width, label=group_name)
+        if status_col is not None:
+            statuses = subset[status_col].reindex(categories)
+            for bar, status in zip(bars, statuses):
+                if status != "CONVERGED":
+                    bar.set_hatch("//")
+                    bar.set_edgecolor("black")
+    ax.set_xticks(x)
+    ax.set_xticklabels(categories, rotation=20, ha="right")
+    ax.set_ylabel(y)
+    if logy:
+        ax.set_yscale("log")
+    ax.legend(fontsize=7, ncol=2)
+    fig.tight_layout()
     return fig
 
 
