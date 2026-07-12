@@ -9,7 +9,12 @@ from trust_bench.backends.apl_backend import APLBackend
 from trust_bench.backends.scipy_backend import SciPyBackend
 from trust_bench.reporting.capability_matrix import derive_matrix
 from trust_bench.reporting.html_report import build_html_report, save_html_report
-from trust_bench.reporting.plots import plot_capability_matrix, plot_metric_vs_sweep, save_figure
+from trust_bench.reporting.plots import (
+    plot_capability_matrix,
+    plot_metric_by_category,
+    plot_metric_vs_sweep,
+    save_figure,
+)
 from trust_bench.reporting.tables import results_to_dataframe, save_table
 from trust_bench.studies import (
     baseline,
@@ -153,6 +158,10 @@ def _write_typical(output_dir, backends):
     df = results_to_dataframe(typical.sweep(backends=backends), key_names=["problem_id", "method", "backend"])
     _check_backend_coverage(df, backends, "typical")
     save_table(df, output_dir / "typical.csv")
+    fig = plot_metric_by_category(
+        df, category="problem_id", y="dist_to_opt", group=["method", "backend"], logy=True, status_col="status"
+    )
+    save_figure(fig, output_dir / "typical.png")
 
 
 STUDIES = {
