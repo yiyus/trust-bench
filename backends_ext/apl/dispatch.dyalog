@@ -6,6 +6,10 @@ NameFor←{
     ⍵≡'expdec':'ExpDec'
     ⍵≡'quadratic':'Quadratic'
     ⍵≡'linear':'Linear'
+    ⍵≡'noisy_expdec':'NoisyExpDec'
+    ⍵≡'logistic':'Logistic'
+    ⍵≡'michaelis_menten':'MichaelisMenten'
+    ⍵≡'gaussian_peak':'GaussianPeak'
     ''
 }
 HessianNameFor←{
@@ -16,6 +20,10 @@ HessianNameFor←{
     ⍵≡'expdec':'ExpDecHessian'
     ⍵≡'quadratic':'QuadraticHessian'
     ⍵≡'linear':'LinearHessian'
+    ⍵≡'noisy_expdec':'NoisyExpDecHessian'
+    ⍵≡'logistic':'LogisticHessian'
+    ⍵≡'michaelis_menten':'MichaelisMentenHessian'
+    ⍵≡'gaussian_peak':'GaussianPeakHessian'
     ''
 }
 FamilyNameFor←{
