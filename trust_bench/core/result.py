@@ -11,6 +11,7 @@ class RunStatus(Enum):
     MAX_ITER = "MAX_ITER"
     FAILED = "FAILED"
     DIVERGED = "DIVERGED"
+    STALLED = "STALLED"
     ERROR = "ERROR"
 
 

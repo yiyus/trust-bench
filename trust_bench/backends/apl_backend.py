@@ -17,6 +17,7 @@ _STATUS = {
     "CONVERGED": RunStatus.CONVERGED,
     "MAX_ITER": RunStatus.MAX_ITER,
     "FAILED": RunStatus.FAILED,
+    "STALLED": RunStatus.STALLED,
     "ERROR": RunStatus.ERROR,
 }
 

@@ -46,6 +46,23 @@ def test_solve_reports_unknown_problem_id_for_an_unrecognised_parametrised_famil
     assert result.status is RunStatus.ERROR
 
 
+def test_solve_reports_stalled_not_converged_when_only_the_relative_change_criterion_fires():
+    # Newton.aplo's own termination check treats "cost below tolerance"
+    # (tc>c, a genuine guarantee) and "relative-change metric stalled"
+    # (tr>r, which only means the last accepted step stopped changing
+    # much) as distinct conditions. At kappa=1e7, trust-exact's true
+    # Hessian is indefinite this far from the optimum and only the
+    # relative-change criterion fires, leaving cost_final far above any
+    # reasonable tolerance (measured directly: ~6.96, versus ~1e-15 at
+    # kappa=1e6 where the cost criterion genuinely fires).
+    problem = ill_conditioned.make(kappa=1e7)
+
+    result = BACKEND.solve(problem, "trust-exact", START, RunConfig(max_iter=200))
+
+    assert result.status is RunStatus.STALLED, result.status
+    assert result.cost_final > 1.0
+
+
 # dimensionality.py's own study only ever solves this family with its
 # dense-Hessian methods (trust-exact, BFGS), never "lm" - matching that
 # rather than reusing the "lm" convergence test above.

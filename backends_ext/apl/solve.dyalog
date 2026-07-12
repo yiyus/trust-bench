@@ -1,4 +1,4 @@
-∇res←Solve req;f;hf;method;calls;hcalls;fd;lower;cfg;r;finalpair;grad;status;parsed;family;param;isParam
+∇res←Solve req;f;hf;method;calls;hcalls;fd;lower;cfg;r;finalpair;grad;gnorm;bounded;status;parsed;family;param;isParam
   f←NameFor req.problem_id
   isParam←0
   :If 0=≢f
@@ -72,7 +72,8 @@
   cfg.toli←{2=⎕NC'req.max_iter':req.max_iter ⋄ 1E3}⍬
   cfg.tolc←{2=⎕NC'req.tolerance':req.tolerance ⋄ ⎕CT}⍬
   cfg.tolr←{2=⎕NC'req.tolerance':req.tolerance ⋄ ⎕CT}⍬
-  :If 2=⎕NC'req.bounds'
+  bounded←2=⎕NC'req.bounds'
+  :If bounded
       cfg.lower←1⊃req.bounds
       cfg.upper←2⊃req.bounds
   :EndIf
@@ -84,12 +85,21 @@
       finalpair←Apply f r.p
   :EndIf
   grad←(⍉2⊃finalpair)+.×1⊃finalpair
+  gnorm←0.5*⍨+/grad×grad
   :If r.iter≥r.toli
       status←'MAX_ITER'
   :ElseIf r.dnorm>r.dmax
       status←'FAILED'
-  :Else
+  :ElseIf bounded
+      ⍝ gnorm is the unconstrained gradient norm, genuinely nonzero at
+      ⍝ an active-bound optimum; distinguishing a real stall from a
+      ⍝ genuine bounded convergence needs a KKT-aware (projected)
+      ⍝ gradient check this harness does not yet compute.
       status←'CONVERGED'
+  :ElseIf (r.cost<cfg.tolc)∨gnorm<1E¯2
+      status←'CONVERGED'
+  :Else
+      status←'STALLED'
   :EndIf
   res←⎕NS''
   res.problem_id←req.problem_id
@@ -101,5 +111,5 @@
   res.n_feval←calls
   res.n_jeval←NULL
   res.n_heval←hcalls
-  res.grad_norm_final←0.5*⍨+/grad×grad
+  res.grad_norm_final←gnorm
 ∇
