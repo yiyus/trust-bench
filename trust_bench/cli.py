@@ -63,13 +63,21 @@ def _write_baseline(output_dir, backends):
     save_table(basin_df, output_dir / "baseline_basin_rates.csv")
 
 
+def _large_residual_basin_rate_table(rates):
+    return pd.DataFrame(dict(rho=rho, backend=backend, basin_rate=rate) for (rho, backend), rate in rates.items())
+
+
 def _write_large_residual(output_dir, backends):
-    results, _ = large_residual.backend_results(backends=backends)
+    results, rates = large_residual.backend_results(backends=backends)
     df = results_to_dataframe(results, key_names=["rho", "backend"])
     _check_backend_coverage(df, backends, "large_residual")
     save_table(df, output_dir / "large_residual.csv")
     fig = plot_metric_vs_sweep(df, x="rho", y="grad_norm_final", group="backend", logx=True, logy=True)
     save_figure(fig, output_dir / "large_residual.png")
+
+    basin_df = _large_residual_basin_rate_table(rates)
+    _check_backend_coverage(basin_df, backends, "large_residual (basin rates)")
+    save_table(basin_df, output_dir / "large_residual_basin_rates.csv")
 
 
 def _write_ill_conditioning(output_dir, backends):
