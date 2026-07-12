@@ -67,6 +67,20 @@ def test_ill_conditioned_rejects_a_condition_number_below_one():
         ill_conditioned.make(kappa=0.5)
 
 
+@pytest.mark.parametrize("kappa", [1.0, 10.0, 1e3, 1e6, 1e8])
+def test_ill_conditioned_hessian_stays_positive_definite_across_the_conditioning_sweep(kappa):
+    # residual is linear (r = a@x - b), so hessian is the constant a.T@a
+    # everywhere, regardless of how far x is from x_star: kappa widens
+    # its eigenvalue spread but never flips a sign. Distinguishes this
+    # family's fragility (numerical precision loss under an extreme
+    # condition number) from dimensionality's/the typical study's
+    # (genuine Hessian indefiniteness from residual curvature) - see
+    # docs/methodology.md.
+    problem = ill_conditioned.make(kappa=kappa)
+    for x in [np.zeros(2), problem.optima[0].x_star, *problem.probe_points]:
+        assert np.linalg.eigvalsh(problem.hessian(x)).min() > 0
+
+
 # ---------------------------------------------------------------------------
 # outliers
 # ---------------------------------------------------------------------------
@@ -153,3 +167,20 @@ def test_dimensionality_grows_with_n():
 def test_dimensionality_rejects_an_odd_n():
     with pytest.raises(ValueError):
         dimensionality.make(n=3)
+
+
+def test_dimensionality_hessian_is_indefinite_partway_between_the_start_and_the_optimum():
+    # Generalised Rosenbrock's true hessian is J.T@J plus a
+    # residual-weighted correction term; away from the zero-residual
+    # optimum, that correction can flip an eigenvalue's sign. Confirms
+    # trust-exact's known indefinite-Hessian fragility (see
+    # docs/methodology.md) is a real property of this family's math, not
+    # only of the typical study's noisy_expdec/gaussian_peak - even
+    # though trust-exact itself still converges reliably here (the
+    # indefiniteness is comparatively mild).
+    problem = dimensionality.make(n=10)
+    start = problem.starts["standard"]
+    x_star = problem.optima[0].x_star
+    midpoint = 0.5 * (start + x_star)
+
+    assert np.linalg.eigvalsh(problem.hessian(midpoint)).min() < 0
