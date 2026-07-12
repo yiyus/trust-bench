@@ -3,7 +3,12 @@ import pandas as pd
 import pytest
 
 from trust_bench.reporting.capability_matrix import derive_matrix
-from trust_bench.reporting.plots import plot_capability_matrix, plot_metric_vs_sweep, save_figure
+from trust_bench.reporting.plots import (
+    plot_capability_matrix,
+    plot_metric_by_category,
+    plot_metric_vs_sweep,
+    save_figure,
+)
 from trust_bench.reporting.tables import results_to_dataframe
 from trust_bench.studies.large_residual import backend_results
 
@@ -23,6 +28,18 @@ def multi_group_df():
             dict(x=3, y=30, method="a", backend="p", status="MAX_ITER"),
             dict(x=1, y=15, method="b", backend="q", status="CONVERGED"),
             dict(x=2, y=25, method="b", backend="q", status="CONVERGED"),
+        ]
+    )
+
+
+@pytest.fixture
+def category_df():
+    return pd.DataFrame(
+        [
+            dict(problem_id="p1", y=1.0, method="a", backend="x", status="CONVERGED"),
+            dict(problem_id="p1", y=2.0, method="b", backend="x", status="MAX_ITER"),
+            dict(problem_id="p2", y=3.0, method="a", backend="x", status="CONVERGED"),
+            dict(problem_id="p2", y=4.0, method="b", backend="x", status="CONVERGED"),
         ]
     )
 
@@ -79,6 +96,31 @@ def test_plot_metric_vs_sweep_draws_no_overlay_when_status_col_is_not_given(mult
     fig = plot_metric_vs_sweep(multi_group_df, x="x", y="y", group="method")
 
     assert len(fig.axes[0].lines) == 2
+
+
+def test_plot_metric_by_category_draws_one_bar_cluster_per_category(category_df):
+    fig = plot_metric_by_category(category_df, category="problem_id", y="y", group=["method", "backend"])
+
+    # 2 categories (p1, p2), 2 groups (a/x, b/x) each: 4 bars total.
+    assert len(fig.axes[0].patches) == 4
+    labels = {text.get_text() for text in fig.axes[0].get_legend().get_texts()}
+    assert labels == {"a/x", "b/x"}
+
+
+def test_plot_metric_by_category_hatches_non_converged_bars(category_df):
+    fig = plot_metric_by_category(
+        category_df, category="problem_id", y="y", group=["method", "backend"], status_col="status"
+    )
+
+    hatched = [bar for bar in fig.axes[0].patches if bar.get_hatch() is not None]
+    assert len(hatched) == 1
+
+
+def test_plot_metric_by_category_draws_no_hatching_when_status_col_is_not_given(category_df):
+    fig = plot_metric_by_category(category_df, category="problem_id", y="y", group=["method", "backend"])
+
+    hatched = [bar for bar in fig.axes[0].patches if bar.get_hatch() is not None]
+    assert len(hatched) == 0
 
 
 def test_plot_capability_matrix_draws_a_cell_per_field_and_backend_method_pair():

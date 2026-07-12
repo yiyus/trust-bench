@@ -92,6 +92,7 @@ _EXPECTED_PLOTS = [
     "scaling.png",
     "robust_loss.png",
     "capability_matrix.png",
+    "typical.png",
 ]
 
 
