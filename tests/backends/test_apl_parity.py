@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from trust_bench.backends.apl_backend import evaluate_problem
-from trust_bench.problems import CANONICAL_PROBLEMS
+from trust_bench.problems import CANONICAL_PROBLEMS, TYPICAL_PROBLEMS
 from trust_bench.problems.families import dimensionality, ill_conditioned, large_residual, outliers, scaling
 
 pytestmark = [
@@ -45,3 +45,13 @@ def test_difficulty_family_residual_jacobian_and_hessian_match_the_python_refere
         assert np.allclose(residual, problem.residual(point), atol=1e-9)
         assert np.allclose(jacobian, problem.jacobian(point), atol=1e-9)
         assert np.allclose(hessian, problem.hessian(point), atol=1e-6)
+
+
+@pytest.mark.parametrize("problem", TYPICAL_PROBLEMS, ids=lambda p: p.id)
+def test_typical_problem_residual_jacobian_and_hessian_match_the_python_reference(problem):
+    assert problem.probe_points, f"{problem.id} has no probe_points to check"
+    for point in problem.probe_points:
+        residual, jacobian, hessian = evaluate_problem(problem.id, point)
+        assert np.allclose(residual, problem.residual(point), atol=1e-6)
+        assert np.allclose(jacobian, problem.jacobian(point), atol=1e-6)
+        assert np.allclose(hessian, problem.hessian(point), atol=1e-3)

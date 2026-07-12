@@ -20,6 +20,7 @@ from trust_bench.studies import (
     large_residual,
     robust_loss,
     scaling,
+    typical,
 )
 
 AVAILABLE_BACKENDS = {backend.name: backend for backend in [SciPyBackend(), APLBackend()]}
@@ -148,6 +149,12 @@ def _write_capability_matrix(output_dir, backends):
     save_figure(fig, output_dir / "capability_matrix.png")
 
 
+def _write_typical(output_dir, backends):
+    df = results_to_dataframe(typical.sweep(backends=backends), key_names=["problem_id", "method", "backend"])
+    _check_backend_coverage(df, backends, "typical")
+    save_table(df, output_dir / "typical.csv")
+
+
 STUDIES = {
     "baseline": _write_baseline,
     "large_residual": _write_large_residual,
@@ -158,6 +165,7 @@ STUDIES = {
     "dimensionality": _write_dimensionality,
     "derivative_source": _write_derivative_source,
     "capability_matrix": _write_capability_matrix,
+    "typical": _write_typical,
 }
 
 # dimensionality sweeps up to n=1000 with a dense-Hessian method
