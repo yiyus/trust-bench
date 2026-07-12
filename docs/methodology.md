@@ -77,11 +77,14 @@ stalling (`(r>0)∧tr>r`) - only means the last accepted step stopped
 changing much; on a problem whose residual doesn't vanish at the true
 optimum (e.g. the `large_residual`/`outliers` families, where cost is
 large by construction even at `x_star`), it is the *only* criterion that
-ever fires, and does so at genuine convergence. On a problem where
-`trust-exact`'s true Hessian is indefinite far from the optimum (high
-`kappa` in `ill_conditioning`, large `n` in `dimensionality`), the same
-criterion can fire from a point nowhere near the optimum, once damping
-has grown large without quite crossing the `FAILED` threshold.
+ever fires, and does so at genuine convergence. At extreme conditioning
+in `ill_conditioning` (high `kappa`, both `BFGS` and `trust-exact`), the
+same criterion can fire from a point nowhere near the optimum, once
+damping has grown large without quite crossing the `FAILED` threshold -
+not because any Hessian involved is indefinite (`ill_conditioning`'s is
+never indefinite; see the capability boundary sections below), but
+because solving the damped-Newton system itself loses numerical
+precision at that condition number.
 
 `solve.dyalog` (`backends_ext/apl/solve.dyalog`) resolves this by adding
 a second, harness-level near-optimality signal: the final gradient norm
@@ -111,7 +114,10 @@ claim this fix resolves bounded near-optimality detection.
 
 `trust-apl`'s BFGS engine is measurably less robust to ill-conditioning
 and dimensionality than scipy's BFGS, confirmed directly by sweeping
-both:
+both. In both cases the underlying Hessian involved is never indefinite
+(`ill_conditioning`'s is the constant, positive-definite `a.T@a`;
+`dimensionality`'s is discussed below) - this is a numerical-precision
+boundary, not the indefinite-Hessian one the next section covers.
 
 - `ill_conditioning` (`kappa` from `1` to `1e8`): `trust-apl BFGS`'s cost
   at the reported solution grows from machine precision at `kappa≤1e3`
@@ -136,8 +142,40 @@ only shows the same stall pattern at `kappa=1e7`/`1e8`, well past where
 BFGS already fails. The gap is BFGS-specific, not a general weakness of
 `trust-apl`'s Newton-region engine.
 
-Out of scope here: whether `trust-exact`'s own indefinite-Hessian
-fragility, independently confirmed on two non-adversarial curve-fitting
-problems in `tests/studies/test_typical_study_apl.py`, warrants a wider
-capability note of its own. Left for separate consideration rather than
-folded into this one.
+## Capability boundary: trust-exact's indefinite-Hessian fragility
+
+Unlike `ill_conditioning`'s numerical-precision boundary above,
+`trust-exact` has a separate, genuine capability limit tied to Hessian
+indefiniteness - a real property of the underlying maths, confirmed
+directly (`tests/problems/test_families.py::
+test_dimensionality_hessian_is_indefinite_partway_between_the_start_and_the_optimum`,
+`tests/problems/test_typical.py::
+test_hessian_indefiniteness_at_the_standard_start_matches_trust_exacts_known_fragility`),
+not only inferred from solver behaviour:
+
+- A nonlinear-least-squares problem's true Hessian is `J.T@J` plus a
+  residual-weighted correction term that vanishes only where the
+  residual itself is zero. Away from a zero-residual point, that
+  correction can flip an eigenvalue's sign.
+- `dimensionality` (generalised Rosenbrock, zero residual at `x*`):
+  indefinite partway between its standard start and the optimum
+  (measured, `n=10`: minimum eigenvalue `-194` at the midpoint) - but
+  mildly enough that `trust-exact` still converges reliably through
+  `n=1000` (see the section above).
+- `noisy_expdec`/`gaussian_peak` (the typical study, nonzero residual
+  even at `x*` since both fit noisy data): indefinite already at the
+  standard start (measured minimum eigenvalue `-82`/`-8`), severely
+  enough that `trust-apl trust-exact` genuinely fails there
+  (`tests/studies/test_typical_study_apl.py::
+  test_trust_apls_trust_exact_diverges_where_the_true_hessian_is_indefinite_away_from_the_optimum`
+  pins `MAX_ITER` on both problems). `logistic`/`michaelis_menten`, the
+  typical study's other two problems, have an always-PSD Hessian
+  (canonical-link-shaped likelihoods) and converge on `trust-exact`
+  cleanly.
+
+The pattern is one mechanism at different severities, not two: mild
+indefiniteness (`dimensionality`) is harmless, severe indefiniteness
+(the typical study) is fatal. `ill_conditioning`'s fragility, despite
+looking similar in its symptom (`trust-exact` failing at an extreme
+parameter value), is a different mechanism entirely and should not be
+read as the same boundary.
