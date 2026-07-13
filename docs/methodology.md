@@ -31,25 +31,36 @@ applied to every parameter the chosen method accepts.
 step/cost/gradient thresholds. Its convergence check (`Newton.aplo`'s
 `C` function) stops when either:
 
-- the cost itself drops below an absolute threshold (`tc`), or
+- the cost itself drops below an absolute threshold (`tc`) - a genuine
+  precision guarantee, or
 - a relative change metric `r` - the minimum of relative parameter-space
   change and relative cost change between the last two accepted
   iterates (`Newton.aplo`'s `T` function) - drops below a relative
   threshold (`tr`), once `r` is positive (a negative `r` means the step
-  made things worse, not converged).
+  made things worse, not converged). `tr` is a stall detector, not a
+  precision selector: it bounds how small the change between accepted
+  iterates can get before the solver gives up, regardless of how far
+  that point is from the optimum.
 
-`solve.dyalog` maps a single `RunConfig.tolerance` value onto both `tc`
-(`cfg.tolc`) and `tr` (`cfg.tolr`) uniformly. Left `None`, both fall
-back to `⎕CT` (Dyalog's comparison tolerance, measured `1e-14` in this
-environment).
+`solve.dyalog` maps `RunConfig.tolerance` onto `tc` (`cfg.tolc`) only.
+`tr` (`cfg.tolr`) always stays at its tight native default (`⎕CT`,
+measured `1e-14` in this environment) regardless of the requested
+tolerance. Loosening `tr` in step with `tc` does not trade precision for
+speed the way loosening `tc` does - it only lowers the bar for a false
+stall. Confirmed directly: mapping a requested `tolerance=0.1` onto both
+`tc` and `tr` made `trust-apl`'s `lm` report a stall after a single
+iteration (`dist_to_opt≈1.95`), worse than the *tighter* `tolerance=0.01`
+(`dist_to_opt≈0.078`) - a looser tolerance produced a worse result, the
+opposite of the intended trade-off. Left `None`, `tc` also falls back to
+`⎕CT`.
 
 ### Why an equal numeric value is not an equal test
 
 scipy's thresholds are independent, absolute-scale comparisons against
-the current step/cost/gradient. `trust`'s `r` is a relative,
-stall-detection metric computed from consecutive accepted iterates, not
-an absolute distance to a target. The same numeric `tolerance` value
-therefore does not exercise the same stopping condition in each backend.
+the current step/cost/gradient. `trust`'s `tc` is a single absolute cost
+threshold, not scipy's three independent step/cost/gradient checks. The
+same numeric `tolerance` value therefore does not exercise the same
+stopping condition in each backend.
 
 Confirmed directly (`rosenbrock.PROBLEM`, method `"lm"`, `tolerance`
 from `1e-2` to `1e-14`): scipy reaches `dist_to_opt == 0.0` at every

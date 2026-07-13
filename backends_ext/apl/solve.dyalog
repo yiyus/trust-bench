@@ -71,7 +71,11 @@
   cfg.loss←{2=⎕NC'req.loss':req.loss ⋄ 'L2'}⍬
   cfg.toli←{2=⎕NC'req.max_iter':req.max_iter ⋄ 1E3}⍬
   cfg.tolc←{2=⎕NC'req.tolerance':req.tolerance ⋄ ⎕CT}⍬
-  cfg.tolr←{2=⎕NC'req.tolerance':req.tolerance ⋄ ⎕CT}⍬
+  ⍝ tolr bounds how small the relative change between accepted iterates
+  ⍝ can get before the solver treats it as a stall, not a precision
+  ⍝ threshold; loosening it with cfg.tolc only lowers the bar for a
+  ⍝ false stall, it never trades precision for speed.
+  cfg.tolr←⎕CT
   bounded←2=⎕NC'req.bounds'
   :If bounded
       cfg.lower←1⊃req.bounds
