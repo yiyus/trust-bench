@@ -24,3 +24,18 @@ def test_solve_converges_more_precisely_with_a_tighter_tolerance():
     assert loose.status is RunStatus.CONVERGED
     assert tight.status is RunStatus.CONVERGED
     assert tight.dist_to_opt < loose.dist_to_opt
+
+
+def test_a_looser_tolerance_does_not_stall_before_making_real_progress():
+    # tolr bounds how small the relative change between successive
+    # accepted iterates can get before the solver treats it as "no
+    # progress" and gives up - it is not a precision knob. Mapping
+    # RunConfig.tolerance onto it made a *looser* tolerance produce a
+    # *worse* result: at tolerance=0.1, the very first rejected step's
+    # damping increase already looked like a stall (measured: STALLED
+    # after 1 iteration, dist_to_opt~1.95), while tolerance=0.01 (a
+    # tighter, not looser, request) converged with dist_to_opt~0.078.
+    result = BACKEND.solve(PROBLEM, "lm", START, RunConfig(max_iter=200, tolerance=0.1))
+
+    assert result.status is RunStatus.CONVERGED
+    assert result.dist_to_opt < 0.5
