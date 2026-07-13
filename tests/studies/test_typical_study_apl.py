@@ -24,22 +24,18 @@ def test_trust_apls_lm_and_bfgs_converge_on_every_typical_problem():
             assert result.dist_to_opt < 1e-3, f"{problem.id}/{method}"
 
 
-def test_trust_apls_trust_exact_diverges_where_the_true_hessian_is_indefinite_away_from_the_optimum():
-    # A real, measured capability difference (not a bug): scipy's own
-    # trust-exact converges cleanly on the exact same problems and start
-    # (its trust-region safeguards handle an indefinite Hessian at the
-    # starting point); trust's own engine does not, at least not here.
-    # This pins the current, real behaviour so a future change to
-    # trust's engine that fixes or worsens this is a deliberate test
-    # change, not silent drift.
+def test_trust_apls_trust_exact_converges_despite_an_indefinite_hessian_away_from_the_optimum():
+    # noisy_expdec/gaussian_peak's true hessian is indefinite at the
+    # standard start (nonzero residual even at x_star; see
+    # docs/methodology.md). trust's Newton.aplo engine used to diverge
+    # there (MAX_ITER) until it started rejecting any step whose
+    # quadratic model predicts a negative error decrement (vendored
+    # trust commit 05f9010) - this pins the fixed behaviour so a
+    # regression back to the old failure mode is caught, not silently
+    # reintroduced.
     results = sweep(backends=[SciPyBackend(), APLBackend()])
 
-    for problem_id in ["noisy_expdec", "gaussian_peak"]:
-        result = results[(problem_id, "trust-exact", "trust-apl")]
-        assert result.status is RunStatus.MAX_ITER, problem_id
-        assert result.dist_to_opt > 1.0, problem_id
-
-    for problem_id in ["logistic", "michaelis_menten"]:
-        result = results[(problem_id, "trust-exact", "trust-apl")]
-        assert result.status is RunStatus.CONVERGED, problem_id
-        assert result.dist_to_opt < 1e-3, problem_id
+    for problem in TYPICAL_PROBLEMS:
+        result = results[(problem.id, "trust-exact", "trust-apl")]
+        assert result.status is RunStatus.CONVERGED, problem.id
+        assert result.dist_to_opt < 1e-3, problem.id

@@ -142,11 +142,11 @@ only shows the same stall pattern at `kappa=1e7`/`1e8`, well past where
 BFGS already fails. The gap is BFGS-specific, not a general weakness of
 `trust-apl`'s Newton-region engine.
 
-## Capability boundary: trust-exact's indefinite-Hessian fragility
+## Trust-exact and Hessian indefiniteness
 
-Unlike `ill_conditioning`'s numerical-precision boundary above,
-`trust-exact` has a separate, genuine capability limit tied to Hessian
-indefiniteness - a real property of the underlying maths, confirmed
+Unlike `ill_conditioning`'s numerical-precision boundary above, Hessian
+indefiniteness is a separate, genuine property of the underlying maths
+that `trust-exact`'s Newton-region engine must navigate, confirmed
 directly (`tests/problems/test_families.py::
 test_dimensionality_hessian_is_indefinite_partway_between_the_start_and_the_optimum`,
 `tests/problems/test_typical.py::
@@ -164,18 +164,21 @@ not only inferred from solver behaviour:
   `n=1000` (see the section above).
 - `noisy_expdec`/`gaussian_peak` (the typical study, nonzero residual
   even at `x*` since both fit noisy data): indefinite already at the
-  standard start (measured minimum eigenvalue `-82`/`-8`), severely
-  enough that `trust-apl trust-exact` genuinely fails there
-  (`tests/studies/test_typical_study_apl.py::
-  test_trust_apls_trust_exact_diverges_where_the_true_hessian_is_indefinite_away_from_the_optimum`
-  pins `MAX_ITER` on both problems). `logistic`/`michaelis_menten`, the
-  typical study's other two problems, have an always-PSD Hessian
-  (canonical-link-shaped likelihoods) and converge on `trust-exact`
-  cleanly.
+  standard start (measured minimum eigenvalue `-82`/`-8`). Before
+  vendored `trust` commit `05f9010`, `trust-apl trust-exact` genuinely
+  failed here (`MAX_ITER`, `dist_to_opt` in the thousands to billions):
+  `Newton.aplo` accepted a step whenever its actual outcome improved
+  the cost, even if the quadratic model that produced it had predicted
+  a negative error decrement - a sign the damping wasn't yet enough to
+  counteract the indefinite Hessian. `05f9010` rejects any such step
+  outright, and `trust-apl trust-exact` now converges cleanly on both
+  problems (`tests/studies/test_typical_study_apl.py::
+  test_trust_apls_trust_exact_converges_despite_an_indefinite_hessian_away_from_the_optimum`).
+  `logistic`/`michaelis_menten`, the typical study's other two problems,
+  have an always-PSD Hessian (canonical-link-shaped likelihoods) and
+  were never affected either way.
 
-The pattern is one mechanism at different severities, not two: mild
-indefiniteness (`dimensionality`) is harmless, severe indefiniteness
-(the typical study) is fatal. `ill_conditioning`'s fragility, despite
-looking similar in its symptom (`trust-exact` failing at an extreme
-parameter value), is a different mechanism entirely and should not be
-read as the same boundary.
+`ill_conditioning`'s fragility, despite looking similar in its symptom
+(`trust-exact` failing at an extreme parameter value), is a different
+mechanism entirely (numerical precision loss, not indefiniteness - see
+above) and is not affected by this fix.
