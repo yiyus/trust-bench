@@ -18,6 +18,22 @@ def fd_jacobian(residual, x, h=1e-4):
     return J
 
 
+def fd_gradient(objective, x, h=1e-4):
+    """High-order (5-point, O(h^4)) central-difference gradient of a
+    scalar-valued objective at x."""
+    x = np.asarray(x, dtype=float)
+    grad = np.zeros(len(x))
+    for j in range(len(x)):
+        e = np.zeros(len(x))
+        e[j] = 1.0
+        fp2 = objective(x + 2 * h * e)
+        fp1 = objective(x + h * e)
+        fm1 = objective(x - h * e)
+        fm2 = objective(x - 2 * h * e)
+        grad[j] = (-fp2 + 8 * fp1 - 8 * fm1 + fm2) / (12 * h)
+    return grad
+
+
 def fd_hessian(objective, x, h=1e-3):
     """Central-difference Hessian of a scalar-valued objective at x."""
     x = np.asarray(x, dtype=float)

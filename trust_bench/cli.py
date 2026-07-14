@@ -24,6 +24,7 @@ from trust_bench.studies import (
     ill_conditioning,
     large_residual,
     robust_loss,
+    scalar_cost,
     scaling,
     typical,
 )
@@ -154,6 +155,12 @@ def _write_derivative_source(output_dir, backends):
     save_table(df, output_dir / "derivative_source.csv")
 
 
+def _write_scalar_cost(output_dir, backends):
+    df = results_to_dataframe(scalar_cost.sweep(backends=backends), key_names=["problem_id", "method", "backend"])
+    _check_backend_coverage(df, backends, "scalar_cost")
+    save_table(df, output_dir / "scalar_cost.csv")
+
+
 def _write_capability_matrix(output_dir, backends):
     df = derive_matrix(backends=backends)
     _check_backend_coverage(df, backends, "capability_matrix")
@@ -181,6 +188,7 @@ STUDIES = {
     "scaling": _write_scaling,
     "dimensionality": _write_dimensionality,
     "derivative_source": _write_derivative_source,
+    "scalar_cost": _write_scalar_cost,
     "capability_matrix": _write_capability_matrix,
     "typical": _write_typical,
 }
