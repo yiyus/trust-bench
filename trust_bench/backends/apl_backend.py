@@ -226,4 +226,5 @@ class APLBackend(Backend):
             provenance=self.environment(),
             harness_git_sha=harness_git_sha(),
             timestamp=datetime.now(timezone.utc).isoformat(),
+            message=response.get("message"),
         )
