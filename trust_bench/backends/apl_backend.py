@@ -163,6 +163,14 @@ class APLBackend(Backend):
                 raise ValueError(f"{method} does not support x_scale={config.x_scale!r}")
             if method == "trust-exact":
                 raise ValueError(f"{method} does not support x_scale")
+        if config.f_scale is not None:
+            # trust's Loss namespace bakes in a fixed per-loss tuning
+            # constant (Loss.apln: huber=1.345, cauchy=2.385) and
+            # Min.aplo's L function further auto-scales it by a
+            # MAD-based robust sigma recomputed every call - there is no
+            # per-request knob to override either, so a silent no-op
+            # would misrepresent what was actually run.
+            raise ValueError(f"{self.name} does not support f_scale")
         if config.derivative_mode is not None and config.derivative_mode not in caps.derivative_modes:
             raise ValueError(f"{method} does not support derivative_mode={config.derivative_mode!r}")
         if config.loss not in caps.losses:

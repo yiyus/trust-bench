@@ -276,3 +276,50 @@ not only inferred from solver behaviour:
 (`trust-exact` failing at an extreme parameter value), is a different
 mechanism entirely (numerical precision loss, not indefiniteness - see
 above) and is not affected by this fix.
+
+## Robust loss tuning constants: matching scipy's f_scale to trust's own
+
+A named robust loss (`huber`, `cauchy`, `soft_l1`, `arctan`) is not a
+single fixed function: each has a tuning constant controlling where it
+transitions from quadratic to its outlier-downweighting behaviour, and
+the two libraries do not default to the same one. `trust`'s `Loss.apln`
+(`backends_ext/apl/trust/APLSource/Loss.apln`) bakes in the textbook
+~95%-asymptotic-efficiency constants (`huber=1.345`, `cauchy=2.385`,
+`softl1=1`, `arctan=1`), while scipy's `least_squares` always uses its own
+fixed default, `f_scale=1.0`, unless a caller passes one explicitly -
+which `trust_bench.studies.robust_loss` did not.
+
+Confirmed directly this was the actual mechanism behind the study's
+measured scipy-vs-`trust-apl` precision gap, not a coincidence: the gap's
+size tracked the ratio between each loss's `trust` constant and scipy's
+fixed `1.0`, not a general "`trust` is less robust" pattern. `soft_l1`/
+`arctan` (both libraries at `1.0`, matching) showed the two backends
+landing close together across the fraction sweep; `huber` (`1.345` vs
+`1.0`, a modest mismatch) showed a modest, consistent gap; `cauchy`
+(`2.385` vs `1.0`, the largest mismatch) showed the largest gap. Read at
+face value, the original table looked like a genuine capability
+difference; the better-supported reading was an unheld comparability
+variable, the same category of pitfall the tolerance-mapping section
+above already documents for a different parameter.
+
+`RunConfig.f_scale` (mirroring `x_scale`'s shape) closes this gap on the
+scipy side: `trust_bench.studies.robust_loss._F_SCALE_FOR_LOSS` maps each
+swept loss to trust's own constant, passed as `f_scale` for the scipy
+backend only. `trust-apl` calls are left untouched, since `APLBackend`
+has no way to honour an explicit `f_scale` at all: trust's own MAD-based
+auto-scaling (`Min.aplo`'s `L` function, `sigma←(A ⍵)÷0.6745`, recomputed
+from the current residuals on every call) is a genuine algorithmic
+difference from scipy's fixed `f_scale`, not something scipy's side is
+made to replicate - `APLBackend.solve` rejects an explicit `f_scale`
+outright rather than silently ignoring it, matching `x_scale`'s own
+precedent for a parameter one backend has no native equivalent for.
+
+Confirmed directly, re-sweeping `fraction=0.3` after the fix: `huber`
+(scipy `7.80`, `trust-apl` `8.27`), `cauchy` (`7.82` vs `7.86`) and
+`soft_l1` (`7.89` vs `7.91`) now cluster together, against the original
+`cauchy` gap of `1.69` (scipy, mismatched constant) vs `7.86`
+(`trust-apl`) the issue itself measured. The two backends still don't
+land on identical values - a matched tuning constant controls for the
+loss shape, not for the two solvers' different optimisation paths
+through it - but the dominant, systematic driver of the original gap is
+gone.

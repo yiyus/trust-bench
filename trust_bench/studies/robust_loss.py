@@ -26,6 +26,21 @@ TRUST_LOSSES = ["welsch"]
 _METHOD_FOR_BACKEND = {"scipy": "trf", "trust-apl": "lm"}
 _TUKEY_C = 4.685
 
+# trust's own Loss.apln tuning constants (backends_ext/apl/trust/
+# APLSource/Loss.apln), the ~95%-asymptotic-efficiency textbook values -
+# not scipy's own default of 1.0 for every loss. Matching these on the
+# scipy side keeps the two backends evaluated at the same effective loss
+# shape; trust-apl's own additional MAD-based auto-scaling (recomputed
+# every call, vs scipy's fixed f_scale) is a genuine algorithmic
+# difference kept as-is, not something scipy is made to replicate.
+_F_SCALE_FOR_LOSS = {"huber": 1.345, "cauchy": 2.385, "soft_l1": 1.0, "arctan": 1.0}
+
+
+def _f_scale_for(loss, backend_name):
+    if backend_name != "scipy":
+        return None
+    return _F_SCALE_FOR_LOSS.get(loss)
+
 
 def _warm_start(problem):
     """An arctan-loss scipy fit: a redescending loss has no basin-of-
@@ -51,7 +66,8 @@ def scipy_loss_precision(fractions=FRACTIONS, losses=SCIPY_LOSSES, backends=BACK
             if method is None:
                 continue
             for loss in losses:
-                result = run(problem, backend, method, "standard", RunConfig(max_iter=200, loss=loss))
+                config = RunConfig(max_iter=200, loss=loss, f_scale=_f_scale_for(loss, backend.name))
+                result = run(problem, backend, method, "standard", config)
                 x_final = np.asarray(result.x_final, dtype=float)
                 precision[(fraction, loss, backend.name)] = float(
                     np.linalg.norm(x_final - outliers.TRUE_PARAMETERS)

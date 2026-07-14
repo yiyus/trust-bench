@@ -231,6 +231,8 @@ class SciPyBackend(Backend):
             kwargs["ftol"] = kwargs["xtol"] = kwargs["gtol"] = config.tolerance
         if config.x_scale is not None:
             kwargs["x_scale"] = config.x_scale
+        if config.f_scale is not None:
+            kwargs["f_scale"] = config.f_scale
 
         result = least_squares(**kwargs)
         result.nfev = call_count
