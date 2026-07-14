@@ -58,6 +58,21 @@ def test_run_result_round_trips_with_no_timing_stats():
     assert restored == result
 
 
+def test_run_result_message_defaults_to_none():
+    result = RunResult(**_run_result_kwargs())
+
+    assert result.message is None
+
+
+def test_run_result_round_trips_a_message():
+    result = RunResult(**_run_result_kwargs(message="Unknown problem_id: not_a_family(x=1.0)"))
+
+    restored = RunResult.from_dict(json.loads(json.dumps(result.to_dict())))
+
+    assert restored == result
+    assert restored.message == "Unknown problem_id: not_a_family(x=1.0)"
+
+
 def test_constructing_a_run_result_without_a_provenance_argument_fails():
     kwargs = _run_result_kwargs()
     del kwargs["provenance"]

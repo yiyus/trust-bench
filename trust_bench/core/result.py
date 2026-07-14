@@ -53,6 +53,7 @@ class RunResult:
     provenance: EnvProvenance
     harness_git_sha: str
     timestamp: str
+    message: str | None = None
 
     def __post_init__(self):
         if self.provenance is None:

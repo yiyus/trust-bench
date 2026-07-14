@@ -35,6 +35,22 @@ def test_pivot_by_backend_rejects_anything_but_exactly_two_backends(long_df):
         _pivot_by_backend(long_df, ["problem_id"], [SCIPY])
 
 
+def test_pivot_by_backend_treats_an_unsupported_row_the_same_as_an_error_row():
+    # A backend whose only rows are declared-unsupported rejections
+    # (results_to_dataframe's "UNSUPPORTED" label) has no genuine
+    # comparison point, exactly like one whose only rows are "ERROR" -
+    # the missing-backend guard must catch both, not just the latter.
+    df = pd.DataFrame(
+        [
+            dict(problem_id="p1", backend="scipy", status="CONVERGED", dist_to_opt=1e-9),
+            dict(problem_id="p1", backend="trust-apl", status="UNSUPPORTED", dist_to_opt=None),
+        ]
+    )
+
+    with pytest.raises(ValueError, match="no results for backend"):
+        _pivot_by_backend(df, ["problem_id"], [SCIPY, APLBackend()])
+
+
 def test_parity_frame_rejects_anything_but_exactly_two_backends():
     with pytest.raises(ValueError, match="two backends"):
         parity_frame(backends=[SCIPY])

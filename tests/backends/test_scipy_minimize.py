@@ -54,6 +54,13 @@ def test_method_solves_the_trivial_quadratic_to_the_known_optimum(method):
     assert np.allclose(result.x_final, PROBLEM.optima[0].x_star, atol=1e-6)
 
 
+def test_message_carries_scipys_own_termination_explanation():
+    result = BACKEND.solve(PROBLEM, "BFGS", START, RunConfig(max_iter=100))
+
+    assert result.message
+    assert isinstance(result.message, str)
+
+
 def test_capabilities_bounds_flag_matches_which_methods_accept_bounds():
     methods = BACKEND.capabilities().methods
 

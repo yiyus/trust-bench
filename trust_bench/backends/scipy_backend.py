@@ -192,6 +192,7 @@ class SciPyBackend(Backend):
             cost_gap=cost_gap,
             grad_norm_final=float(np.linalg.norm(grad_final)),
             status=status,
+            message=result.message,
             n_iter=result.nit if hasattr(result, "nit") else result.nfev,
             n_feval=result.nfev,
             n_jeval=getattr(result, "njev", None),

@@ -212,10 +212,11 @@ boundary, not the indefinite-Hessian one the next section covers.
   study assertion, is what stops `n=1000` from completing).
 
 A `dimensionality`/`BFGS`/`n=1000` report row reads as a plain `ERROR`,
-with no message distinguishing it from a genuine crash - worth flagging
-explicitly, since `apl_backend.py`'s own comment on `_TIMEOUT_SECONDS`
-notes a subprocess timeout is indistinguishable, from the caller's
-side, from any other harness-reported error. Confirmed directly (raw
+its `message` field reading `"harness did not complete within 60s"` -
+distinguishing it from any other harness-reported `ERROR` (e.g. an
+unrecognised `problem_id`'s own `"Unknown problem_id: ..."`) by content,
+without a dedicated status of its own (see "Declared-unsupported,
+timeout, and genuine-crash reporting" below). Confirmed directly (raw
 `run_harness.sh` invocation, no subprocess timeout applied): the solve
 is not crashing, just slow - it completes on its own after ~280s,
 `MAX_ITER` at 201 iterations, `cost_final≈21.27`. The underlying cause
@@ -235,6 +236,39 @@ test_solve_trust_exact_converges_at_n_1000`), and `ill_conditioning`
 only shows the same stall pattern at `kappa=1e7`/`1e8`, well past where
 BFGS already fails. The gap is BFGS-specific, not a general weakness of
 `trust-apl`'s Newton-region engine.
+
+## Declared-unsupported, timeout, and genuine-crash reporting
+
+`trust_bench.reporting.tables.results_to_dataframe` accepts either a
+`RunResult` or a raised exception per sweep entry - a study's own
+`except ValueError` block (`scaling.py`'s `x_scale="jac"` probe against
+a backend with no adaptive equivalent, `bounded.py`'s infeasible-start
+scenario against `lm`/`trf`/`dogbox`) catches exactly a backend's own
+declared-unsupported or rejected-input rejection, the expected, passing
+outcome of the sweep's own probe, never a genuine uncaught crash (which
+would propagate rather than land here). That row's status is
+`"UNSUPPORTED"`, with the exception's own message kept rather than
+discarded and every other metric field blank.
+
+A completed `RunResult`'s own `status="ERROR"` (a harness-side crash or
+the subprocess timeout described above) is a different case entirely:
+these already carry real content in `RunResult.message`, threaded
+through from each backend's own already-computed termination
+explanation (scipy's `OptimizeResult.message`; `trust-apl`'s harness
+response, which already includes a `message` key for every `ErrorResult`
+- previously discarded entirely by `apl_backend.py`). A timeout's
+`"harness did not complete within 60s"` and an unrecognised
+`problem_id`'s `"Unknown problem_id: ..."` both report `status="ERROR"`
+but are distinguishable by message content alone, without a dedicated
+status for either.
+
+Both `trust_bench.cli._check_backend_coverage` and
+`trust_bench.reporting.cross_study._pivot_by_backend`'s missing-backend
+guards filter on `trust_bench.reporting.tables.NON_RESULT_STATUSES`
+(`{"ERROR", "UNSUPPORTED"}`) rather than `"ERROR"` alone, so a backend
+whose only rows in a sweep are declared-unsupported rejections is
+correctly treated the same as one whose only rows are crashes: neither
+represents a genuine, comparable result.
 
 ## Trust-exact and Hessian indefiniteness
 

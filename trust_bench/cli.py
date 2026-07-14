@@ -18,7 +18,7 @@ from trust_bench.reporting.plots import (
     plot_parity_scatter,
     save_figure,
 )
-from trust_bench.reporting.tables import results_to_dataframe, save_table
+from trust_bench.reporting.tables import NON_RESULT_STATUSES, results_to_dataframe, save_table
 from trust_bench.studies import (
     baseline,
     bounded,
@@ -40,9 +40,10 @@ def _check_backend_coverage(df, backends, study):
     this study, rather than let a study's own per-pair skip guard (e.g.
     ill_conditioning.sweep's "method not supported: continue") silently
     produce an empty report table, or a backend whose problem ids the
-    study doesn't recognise silently pass coverage on ERROR rows alone.
+    study doesn't recognise silently pass coverage on ERROR/UNSUPPORTED
+    rows alone.
     """
-    rows = df[df["status"] != "ERROR"] if "status" in df.columns else df
+    rows = df[~df["status"].isin(NON_RESULT_STATUSES)] if "status" in df.columns else df
     missing = {backend.name for backend in backends} - set(rows["backend"])
     if missing:
         raise ValueError(f"{study}: no results for backend(s) {', '.join(sorted(missing))}")

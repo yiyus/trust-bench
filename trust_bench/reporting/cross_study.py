@@ -6,7 +6,7 @@ from trust_bench.core.config import RunConfig
 from trust_bench.core.result import RunStatus
 from trust_bench.core.runner import run
 from trust_bench.problems.families import outliers
-from trust_bench.reporting.tables import results_to_dataframe
+from trust_bench.reporting.tables import NON_RESULT_STATUSES, results_to_dataframe
 from trust_bench.studies import bounded, dimensionality, ill_conditioning, large_residual, scaling, typical
 from trust_bench.studies import baseline as baseline_study
 from trust_bench.studies.robust_loss import FRACTIONS
@@ -42,7 +42,7 @@ def _pivot_by_backend(df, index_cols, backends, metric="dist_to_opt"):
     if len(backends) != 2:
         raise ValueError(f"parity comparison needs exactly two backends, got {[b.name for b in backends]}")
 
-    non_error = df[df["status"] != "ERROR"]
+    non_error = df[~df["status"].isin(NON_RESULT_STATUSES)]
     missing = {b.name for b in backends} - set(non_error["backend"])
     if missing:
         raise ValueError(f"parity_scatter: no results for backend(s) {', '.join(sorted(missing))}")
