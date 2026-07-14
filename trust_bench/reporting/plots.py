@@ -1,5 +1,6 @@
 import matplotlib
 import numpy as np
+import pandas as pd
 
 matplotlib.use("Agg")
 
@@ -86,6 +87,64 @@ def plot_metric_by_category(df, category, y, group, logy=False, status_col=None)
     if logy:
         ax.set_yscale("log")
     ax.legend(fontsize=7, ncol=2)
+    fig.tight_layout()
+    return fig
+
+
+def plot_parity_scatter(df, x, y, converged_col=None, group=None):
+    """Log-log scatter of x vs y with a y=x reference line: a tight
+    cloud along the diagonal is the "these two backends agree" claim in
+    one glance, no backend framed as better. A row where converged_col
+    is False is drawn with a distinct marker ("x") instead of the
+    default filled circle, in its group's own colour, so a
+    non-convergent outlier stays visible as the exception it is rather
+    than being dropped or mistaken for an ordinary point.
+    """
+    fig, ax = plt.subplots(figsize=(6, 6))
+    groups = df.groupby(group) if group is not None else [(None, df)]
+    for name, subset in groups:
+        converged = subset[converged_col] if converged_col is not None else pd.Series(True, index=subset.index)
+        good = subset[converged]
+        bad = subset[~converged]
+        label = _group_label(name) if group is not None else None
+        (line,) = ax.plot(good[x], good[y], marker="o", linestyle="none", label=label)
+        if len(bad):
+            ax.plot(bad[x], bad[y], marker="x", linestyle="none", color=line.get_color(), markersize=9)
+
+    lo = min(df[x].min(), df[y].min())
+    hi = max(df[x].max(), df[y].max())
+    ax.plot([lo, hi], [lo, hi], linestyle="--", color="gray", linewidth=1, label="y = x")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel(x)
+    ax.set_ylabel(y)
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    return fig
+
+
+def plot_capability_frontier(panels):
+    """Small multiples, one panel per (name, (df, x, y)) entry: x and y
+    both log-scaled, one line per unique "backend" value. The point is
+    the transition - where a backend's line departs from a flat,
+    converged baseline and starts climbing (or stops appearing at all)
+    - not the value at any single x, so panels share no y-axis and are
+    read independently.
+    """
+    n = len(panels)
+    fig, axes = plt.subplots(1, n, figsize=(4.5 * n, 4.2))
+    if n == 1:
+        axes = [axes]
+    for ax, (name, (df, x, y)) in zip(axes, panels.items()):
+        for backend_name, subset in df.groupby("backend"):
+            subset = subset.sort_values(x)
+            ax.plot(subset[x], subset[y], marker="o", label=backend_name)
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.set_title(name, fontsize=10)
+        ax.set_xlabel(x)
+        ax.set_ylabel(y)
+    axes[0].legend(fontsize=8)
     fig.tight_layout()
     return fig
 

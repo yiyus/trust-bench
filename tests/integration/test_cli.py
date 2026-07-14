@@ -7,6 +7,7 @@ import pytest
 from trust_bench.backends import BACKENDS
 from trust_bench.cli import (
     AVAILABLE_BACKENDS,
+    MULTI_BACKEND_STUDIES,
     SLOW_STUDIES,
     STUDIES,
     _select_backends,
@@ -87,6 +88,7 @@ _EXPECTED_TABLES = [
     "scalar_cost.csv",
     "capability_matrix.csv",
     "typical.csv",
+    "capability_frontier.csv",
 ]
 _EXPECTED_PLOTS = [
     "large_residual.png",
@@ -96,6 +98,7 @@ _EXPECTED_PLOTS = [
     "robust_loss.png",
     "capability_matrix.png",
     "typical.png",
+    "capability_frontier.png",
 ]
 
 
@@ -169,8 +172,23 @@ def test_unknown_backend_name_is_rejected_by_argument_parsing():
         build_parser().parse_args(["report", "--backends", "not-a-real-backend"])
 
 
-def test_select_studies_defaults_to_every_registered_study():
-    assert _select_studies() == set(STUDIES)
+def test_select_studies_defaults_to_every_registered_study_except_parity_scatter():
+    # parity_scatter is a two-backend comparison; the default n_backends=1
+    # (matching a plain `trust-bench report`'s scipy-only default) excludes
+    # it automatically, per MULTI_BACKEND_STUDIES.
+    assert _select_studies() == set(STUDIES) - MULTI_BACKEND_STUDIES
+
+
+def test_select_studies_includes_parity_scatter_when_two_backends_are_selected():
+    assert _select_studies(n_backends=2) == set(STUDIES)
+
+
+def test_select_studies_only_still_selects_parity_scatter_with_one_backend():
+    # An explicit request is not silently dropped, unlike the default
+    # "run everything" selection - the resulting ValueError from
+    # parity_frame's own backend-count check is the appropriate response
+    # to an impossible explicit request.
+    assert _select_studies(only=["parity_scatter"]) == {"parity_scatter"}
 
 
 def test_select_studies_only_returns_exactly_the_requested_set():
@@ -178,7 +196,7 @@ def test_select_studies_only_returns_exactly_the_requested_set():
 
 
 def test_select_studies_skip_removes_from_the_full_set():
-    assert _select_studies(skip=["dimensionality"]) == set(STUDIES) - {"dimensionality"}
+    assert _select_studies(skip=["dimensionality"]) == set(STUDIES) - {"dimensionality"} - MULTI_BACKEND_STUDIES
 
 
 def test_select_studies_rejects_an_unknown_name_when_called_directly():
@@ -191,7 +209,7 @@ def test_select_studies_rejects_an_unknown_name_when_called_directly():
 
 
 def test_select_studies_skip_slow_removes_the_slow_set():
-    assert _select_studies(skip_slow=True) == set(STUDIES) - SLOW_STUDIES
+    assert _select_studies(skip_slow=True, n_backends=2) == set(STUDIES) - SLOW_STUDIES
 
 
 def test_select_backends_defaults_to_the_production_backends_list():
@@ -255,6 +273,22 @@ def test_run_report_uses_the_selected_backends(tmp_path):
 
     df = pd.read_csv(tmp_path / "baseline.csv")
     assert set(df["backend"]) == {"trust-apl"}
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(shutil.which("dyalogscript") is None, reason="Dyalog APL is not installed")
+def test_run_report_writes_the_parity_scatter_only_with_two_backends(tmp_path):
+    run_report(tmp_path, only=["parity_scatter"], backends=["scipy", "trust-apl"])
+
+    df = pd.read_csv(tmp_path / "parity_scatter.csv")
+    assert {"dist_to_opt_scipy", "dist_to_opt_trust-apl", "converged", "study"} <= set(df.columns)
+    assert len(df) > 0
+    assert (tmp_path / "parity_scatter.png").exists()
+
+
+def test_run_report_raises_clearly_when_parity_scatter_is_explicitly_selected_with_one_backend(tmp_path):
+    with pytest.raises(ValueError, match="two backends"):
+        run_report(tmp_path, only=["parity_scatter"])
 
 
 def test_run_report_raises_clearly_when_a_study_does_not_support_the_selected_backend(tmp_path, monkeypatch):
