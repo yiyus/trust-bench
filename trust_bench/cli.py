@@ -8,11 +8,14 @@ from trust_bench.backends import BACKENDS
 from trust_bench.backends.apl_backend import APLBackend
 from trust_bench.backends.scipy_backend import SciPyBackend
 from trust_bench.reporting.capability_matrix import derive_matrix
+from trust_bench.reporting.cross_study import frontier_panels, parity_frame
 from trust_bench.reporting.html_report import build_html_report, save_html_report
 from trust_bench.reporting.plots import (
+    plot_capability_frontier,
     plot_capability_matrix,
     plot_metric_by_category,
     plot_metric_vs_sweep,
+    plot_parity_scatter,
     save_figure,
 )
 from trust_bench.reporting.tables import results_to_dataframe, save_table
@@ -169,6 +172,25 @@ def _write_capability_matrix(output_dir, backends):
     save_figure(fig, output_dir / "capability_matrix.png")
 
 
+def _write_parity_scatter(output_dir, backends):
+    df = parity_frame(backends=backends)
+    save_table(df, output_dir / "parity_scatter.csv")
+    b1, b2 = backends[0].name, backends[1].name
+    fig = plot_parity_scatter(
+        df, x=f"dist_to_opt_{b1}", y=f"dist_to_opt_{b2}", converged_col="converged", group="study"
+    )
+    save_figure(fig, output_dir / "parity_scatter.png")
+
+
+def _write_capability_frontier(output_dir, backends):
+    panels = frontier_panels(backends=backends)
+    combined = pd.concat([df.assign(panel=name) for name, (df, _, _) in panels.items()], ignore_index=True)
+    _check_backend_coverage(combined, backends, "capability_frontier")
+    save_table(combined, output_dir / "capability_frontier.csv")
+    fig = plot_capability_frontier(panels)
+    save_figure(fig, output_dir / "capability_frontier.png")
+
+
 def _write_typical(output_dir, backends):
     df = results_to_dataframe(typical.sweep(backends=backends), key_names=["problem_id", "method", "backend"])
     _check_backend_coverage(df, backends, "typical")
@@ -191,20 +213,38 @@ STUDIES = {
     "scalar_cost": _write_scalar_cost,
     "capability_matrix": _write_capability_matrix,
     "typical": _write_typical,
+    "parity_scatter": _write_parity_scatter,
+    "capability_frontier": _write_capability_frontier,
 }
 
 # dimensionality sweeps up to n=1000 with a dense-Hessian method
 # (Section 9 item 7's own point), which costs tens of seconds per run;
 # every other study/artefact here runs in a few seconds at most.
-SLOW_STUDIES = frozenset({"dimensionality"})
+# capability_frontier's own dimensionality panel repeats that same
+# n=1000 sweep (for a single method, so cheaper, but still the slowest
+# thing this artefact computes).
+SLOW_STUDIES = frozenset({"dimensionality", "capability_frontier"})
+
+# parity_scatter is inherently a two-backend comparison (a pairwise
+# scipy-vs-trust-apl pivot, unlike capability_frontier's one-line-per-
+# backend panels, which work fine with just one); auto-excluded from
+# the default "run everything" selection when fewer than two backends
+# are selected, matching a plain `trust-bench report`'s scipy-only
+# default, which must keep working without dyalogscript installed.
+# Naming it explicitly via --only still runs it, where a clear error
+# (from parity_frame's own backend-count check) is the right response
+# to an impossible request, rather than a silent skip.
+MULTI_BACKEND_STUDIES = frozenset({"parity_scatter"})
 
 
-def _select_studies(only=None, skip=None, skip_slow=False):
+def _select_studies(only=None, skip=None, skip_slow=False, n_backends=1):
     selected = set(only) if only is not None else set(STUDIES)
     if skip is not None:
         selected -= set(skip)
     if skip_slow:
         selected -= SLOW_STUDIES
+    if only is None and n_backends < 2:
+        selected -= MULTI_BACKEND_STUDIES
 
     unknown = selected - set(STUDIES)
     if unknown:
@@ -223,8 +263,8 @@ def _select_backends(names=None):
 
 
 def run_report(output_dir, only=None, skip=None, skip_slow=False, html=False, backends=None):
-    selected = _select_studies(only=only, skip=skip, skip_slow=skip_slow)
     selected_backends = _select_backends(backends)
+    selected = _select_studies(only=only, skip=skip, skip_slow=skip_slow, n_backends=len(selected_backends))
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
