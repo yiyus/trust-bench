@@ -32,11 +32,13 @@ def test_lm_dispatches_tukey_without_raising():
     # Tukey's hard cutoff gives zero weight, and so zero gradient, to
     # every point once the initial residual/scale ratio exceeds it -
     # exactly this trivial two-residual problem's own "standard" start,
-    # confirmed directly (x_final == x0, MAX_ITER). Not a crash, and not
-    # this loss's fault: a real, known basin-of-attraction fragility of
+    # confirmed directly (x_final == x0). Not a crash, and not this
+    # loss's fault: a real, known basin-of-attraction fragility of
     # Tukey's own hard re-descending cutoff, matching why
     # trust_loss_precision (robust_loss.py) sweeps "welsch" rather than
-    # "tukey" by default. Only dispatch without raising is asserted here.
+    # "tukey" by default. STALLED is the correct label here (the
+    # relative-change criterion fires immediately since the point never
+    # moves), not MAX_ITER: only dispatch without raising is asserted.
     result = BACKEND.solve(quadratic.PROBLEM, "lm", "standard", RunConfig(max_iter=100, loss="tukey"))
 
-    assert result.status in (RunStatus.CONVERGED, RunStatus.MAX_ITER)
+    assert result.status in (RunStatus.CONVERGED, RunStatus.MAX_ITER, RunStatus.STALLED)
