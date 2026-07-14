@@ -27,6 +27,10 @@ def test_solve_reports_a_clean_error_status_when_the_harness_times_out(monkeypat
     result = APLBackend().solve(rosenbrock.PROBLEM, "lm", "standard", RunConfig(max_iter=200))
 
     assert result.status is RunStatus.ERROR
+    # The status alone is indistinguishable from any other harness-side
+    # ERROR (e.g. an unknown problem_id); the message is what actually
+    # tells a reader this was a timeout, not a crash.
+    assert "did not complete" in result.message
 
 
 def test_evaluate_problem_raises_a_clear_error_when_the_harness_times_out(monkeypatch):

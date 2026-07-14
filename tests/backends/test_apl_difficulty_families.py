@@ -44,6 +44,7 @@ def test_solve_reports_unknown_problem_id_for_an_unrecognised_parametrised_famil
     result = BACKEND.solve(problem, "lm", START, RunConfig(max_iter=200))
 
     assert result.status is RunStatus.ERROR
+    assert "Unknown problem_id" in result.message
 
 
 def test_solve_reports_stalled_not_converged_when_only_the_relative_change_criterion_fires():
