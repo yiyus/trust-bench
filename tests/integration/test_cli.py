@@ -84,6 +84,7 @@ _EXPECTED_TABLES = [
     "scaling.csv",
     "dimensionality.csv",
     "derivative_source.csv",
+    "scalar_cost.csv",
     "capability_matrix.csv",
     "typical.csv",
 ]
