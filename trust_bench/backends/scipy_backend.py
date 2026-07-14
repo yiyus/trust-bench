@@ -51,6 +51,14 @@ def _map_minimize_status(result, max_iter) -> RunStatus:
 
 
 def _objective(problem):
+    if problem.kind == "scalar":
+        # residual() already is the scalar cost; no sum-of-squares
+        # wrapping, unlike a "residuals"-kind problem below.
+        def f(x):
+            return float(problem.residual(x))
+
+        return f
+
     def f(x):
         r = np.asarray(problem.residual(x), dtype=float)
         return 0.5 * float(r @ r)
@@ -156,6 +164,13 @@ class SciPyBackend(Backend):
             raise ValueError(f"{self.name} has no method {method!r}")
 
         if method in _LEAST_SQUARES_METHODS:
+            if problem.kind == "scalar":
+                # lm/trf/dogbox need a genuine residual vector (they
+                # minimise sum-of-squares internally); a kind="scalar"
+                # problem's residual() is already the cost, not a
+                # residual, so least_squares would silently drive it
+                # toward zero rather than to its true minimum.
+                raise ValueError(f"{method} requires a residual vector; {problem.id!r} is kind='scalar'")
             result, status, grad_final = self._solve_least_squares(problem, method, start, config)
         else:
             result, status, grad_final = self._solve_minimize(problem, method, start, config)
