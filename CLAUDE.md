@@ -4,20 +4,26 @@ This file is project memory. It applies to every session, every command, every s
 
 ## Per-Issue Workflow
 
-We operate a red/green TDD workflow. 
+We operate a red/green TDD workflow. The full test suite runs exactly once per
+cycle, at GREEN, in the background while the implementation is under human
+review - not after every small change.
 
 1. Create branch: {issue-id}-{slug-from-title}
-2. Write tests defining expected behaviour - show that they fail (RED)
+2. Write tests defining expected behaviour. Run only the new/relevant tests to
+   confirm RED; do not run the full suite.
 3. Create/update docs/prs/{issue-id}.md with test details
-4. STOP → Present tests for review → Wait for approval
+4. Notify that RED is reached. STOP → Present tests for review → Wait for approval
 5. Commit approved tests
-6. Implement until tests pass (GREEN)
-7. Run full test suite (no regressions)
-8. Run linters and formatters
-9. Update docs/prs/{issue-id}.md with implementation details
-10. STOP → Present implementation for review → Wait for approval
-11. Commit implementation
-12. Create upstream PR
+6. Implement until the relevant tests pass (GREEN). Run only the relevant
+   tests and linters during this phase; still no full suite.
+7. Update docs/prs/{issue-id}.md with implementation details
+8. Notify that GREEN is reached and start the full test suite in the
+   background immediately (do not wait for it before continuing)
+9. STOP → Present implementation for review → Wait for approval
+10. If approved: wait for the background full suite to finish, then commit
+    the implementation and create the upstream PR
+11. If changes are requested: stop the running full suite, apply fixes, and
+    return to step 6
 
 Note: Always create/update the PR doc in docs/prs/{issue-id}.md when stopping for ANY review.
 

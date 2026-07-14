@@ -1,4 +1,4 @@
-∇res←Solve req;f;hf;method;calls;hcalls;fd;lower;cfg;r;finalpair;grad;gnorm;bounded;status;parsed;family;param;isParam
+∇res←Solve req;f;hf;method;calls;hcalls;fd;lower;cfg;r;gnorm;bounded;status;parsed;family;param;isParam
   f←NameFor req.problem_id
   isParam←0
   :If 0=≢f
@@ -81,18 +81,14 @@
       cfg.lower←1⊃req.bounds
       cfg.upper←2⊃req.bounds
   :EndIf
-  r←lower Min(req.x0)cfg
-  calls←calls+1
-  :If isParam
-      finalpair←ApplyParam f param r.p
-  :Else
-      finalpair←Apply f r.p
+  :If 2=⎕NC'req.pscale'
+      cfg.pscale←req.pscale
   :EndIf
-  grad←(⍉2⊃finalpair)+.×1⊃finalpair
-  gnorm←0.5*⍨+/grad×grad
-  :If r.iter≥r.toli
+  r←lower Min(req.x0)cfg
+  gnorm←0.5*⍨+/r.grad×r.grad
+  :If Result.MaxIterations r
       status←'MAX_ITER'
-  :ElseIf r.dnorm>r.dmax
+  :ElseIf Result.DampingSaturated r
       status←'FAILED'
   :ElseIf bounded
       ⍝ gnorm is the unconstrained gradient norm, genuinely nonzero at
@@ -100,10 +96,10 @@
       ⍝ genuine bounded convergence needs a KKT-aware (projected)
       ⍝ gradient check this harness does not yet compute.
       status←'CONVERGED'
-  :ElseIf (r.cost<cfg.tolc)∨gnorm<1E¯2
-      status←'CONVERGED'
-  :Else
+  :ElseIf (Result.StalledByEscalation r)∨(Result.StalledByPrecision r)
       status←'STALLED'
+  :Else
+      status←'CONVERGED'
   :EndIf
   res←⎕NS''
   res.problem_id←req.problem_id

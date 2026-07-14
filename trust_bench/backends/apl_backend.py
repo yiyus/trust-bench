@@ -148,7 +148,21 @@ class APLBackend(Backend):
         caps = self.capabilities().methods[method]
 
         if config.x_scale is not None:
-            raise ValueError(f"{method} does not support x_scale")
+            # trust's pscale is a fixed reparameterisation only: no
+            # equivalent of scipy's adaptive x_scale="jac" (recomputed
+            # every iteration from the current Jacobian), since
+            # Newton.aplo's own damping by diag(H) already gives an
+            # adaptive-scaling effect internally. The wrapper only
+            # rescales a 2-item (value, derivative) return - lm's
+            # (residual, jacobian) and BFGS's (cost, gradient) - not
+            # trust-exact's 3-item (cost, hessian, gradient): a Hessian
+            # needs outer-product scaling on both axes, not a column
+            # scale, so silently applying pscale there would be a
+            # silently wrong answer rather than an unsupported one.
+            if isinstance(config.x_scale, str):
+                raise ValueError(f"{method} does not support x_scale={config.x_scale!r}")
+            if method == "trust-exact":
+                raise ValueError(f"{method} does not support x_scale")
         if config.derivative_mode is not None and config.derivative_mode not in caps.derivative_modes:
             raise ValueError(f"{method} does not support derivative_mode={config.derivative_mode!r}")
         if config.loss not in caps.losses:
@@ -169,6 +183,8 @@ class APLBackend(Backend):
             request["bounds"] = [np.asarray(lower, dtype=float).tolist(), np.asarray(upper, dtype=float).tolist()]
         if config.derivative_mode is not None:
             request["derivative_mode"] = config.derivative_mode
+        if config.x_scale is not None:
+            request["pscale"] = np.asarray(config.x_scale, dtype=float).tolist()
 
         response = _run_harness(request)
 
