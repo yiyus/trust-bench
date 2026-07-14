@@ -59,6 +59,42 @@ def test_jac_scaling_can_converge_to_the_wrong_answer_at_extreme_scale_disparity
             assert unscaled.dist_to_opt < 1e-6, f"{method}/{backend.name}"
 
 
+def test_fixed_scaling_is_a_per_scale_reparameterisation_matching_the_known_anisotropy():
+    from trust_bench.studies.scaling import _x_scale_for
+
+    assert _x_scale_for("fixed", 1e8) == (1.0, 1e-8)
+    assert _x_scale_for(None, 1e8) is None
+    assert _x_scale_for("jac", 1e8) == "jac"
+
+
+def test_sweep_exercises_bfgs_with_a_fixed_x_scale_for_non_scipy_backends_only():
+    # trust-apl's BFGS also gains a fixed pscale; scipy's own BFGS
+    # (minimize-family) has no x_scale concept at all, so it is
+    # deliberately not exercised for scipy - matching a real trust-apl-
+    # shaped stub (BFGS declared, name != "scipy") against scipy itself.
+    class _BFGSOnlyBackend(Backend):
+        name = "bfgs-only"
+
+        def __init__(self):
+            self._scipy = SciPyBackend()
+
+        def capabilities(self):
+            methods = self._scipy.capabilities().methods
+            return Capabilities(methods={"BFGS": methods["BFGS"]})
+
+        def environment(self):
+            return capture()
+
+        def solve(self, problem, method, start, config):
+            return self._scipy.solve(problem, method, start, config)
+
+    results = sweep(scales=[1.0], methods=["lm"], backends=[_BFGSOnlyBackend()])
+    assert (1.0, "BFGS", "fixed", "bfgs-only") in results
+
+    results_scipy = sweep(scales=[1.0], backends=BACKENDS)
+    assert not any(key[1] == "BFGS" for key in results_scipy)
+
+
 class _LMOnlyBackend(Backend):
     """Wraps SciPyBackend but declares only lm, to prove sweep() skips a
     (method, backend) pair the backend does not support rather than
@@ -87,6 +123,7 @@ def test_sweep_skips_a_method_a_backend_does_not_support():
     assert set(results) == {
         (1.0, "lm", None, "lm-only"),
         (1.0, "lm", "jac", "lm-only"),
+        (1.0, "lm", "fixed", "lm-only"),
     }
 
 
