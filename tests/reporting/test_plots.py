@@ -174,8 +174,14 @@ def test_plot_parity_scatter_marks_non_converged_rows_distinctly(parity_df):
     fig = plot_parity_scatter(parity_df, x="x", y="y", converged_col="converged")
 
     marked = [line for line in fig.axes[0].lines if line.get_marker() == "x"]
+    good = [line for line in fig.axes[0].lines if line.get_marker() == "o"]
     assert len(marked) == 1
     assert len(marked[0].get_xdata()) == 1
+    # Same colour as its own group's regular points, not a fixed colour:
+    # the marker shape alone should be what flags the exception, with no
+    # separate legend entry needed.
+    assert len(good) == 1
+    assert marked[0].get_color() == good[0].get_color()
 
 
 def test_plot_parity_scatter_draws_no_marked_points_without_a_converged_col(parity_df):
