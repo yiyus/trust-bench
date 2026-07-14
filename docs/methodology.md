@@ -144,6 +144,22 @@ boundary, not the indefinite-Hessian one the next section covers.
   pins the `n=100` case; the harness's own subprocess timeout, not a
   study assertion, is what stops `n=1000` from completing).
 
+A `dimensionality`/`BFGS`/`n=1000` report row reads as a plain `ERROR`,
+with no message distinguishing it from a genuine crash - worth flagging
+explicitly, since `apl_backend.py`'s own comment on `_TIMEOUT_SECONDS`
+notes a subprocess timeout is indistinguishable, from the caller's
+side, from any other harness-reported error. Confirmed directly (raw
+`run_harness.sh` invocation, no subprocess timeout applied): the solve
+is not crashing, just slow - it completes on its own after ~280s,
+`MAX_ITER` at 201 iterations, `cost_final≈21.27`. The underlying cause
+is architectural, not a bug to fix here: `trust`'s BFGS keeps and
+updates a dense `n×n` approximate Hessian every iteration (the same
+`O(n²)`-`O(n³)` cost profile as `lm`'s own linear solve), so it neither
+exploits residual/Jacobian structure the way `lm` does on this
+benchmark's fit-shaped problems, nor scales the way a genuinely
+limited-memory BFGS (scipy's `L-BFGS-B`, which converges cleanly at
+`n=1000` in the same study) would.
+
 `trust-apl trust-exact`, by contrast, tracks scipy's own trust-exact
 closely across both sweeps - `dimensionality` converges at `n=1000` on
 both backends
