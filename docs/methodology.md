@@ -97,19 +97,39 @@ never indefinite; see the capability boundary sections below), but
 because solving the damped-Newton system itself loses numerical
 precision at that condition number.
 
-`solve.dyalog` (`backends_ext/apl/solve.dyalog`) resolves this by adding
-a second, harness-level near-optimality signal: the final gradient norm
-(`grad_norm_final`, already computed for every method regardless of
-whether it drove the search). A relative-change stall is reported as
-`CONVERGED` only when the cost criterion holds (`r.cost<cfg.tolc`) or
-the gradient norm is small (`<1e-2`); otherwise it is reported as the
-distinct `RunStatus.STALLED`. The `1e-2` threshold is a harness
-heuristic, not a value `trust` itself uses anywhere: measured directly,
-genuine convergences (including the large-residual case above) leave a
-gradient norm at or below `1.6e-6`, while the indefinite-Hessian stalls
-this distinguishes leave one at `4.8` or higher - six orders of
-magnitude of margin either side of `1e-2` across every case measured so
-far.
+`solve.dyalog` (`backends_ext/apl/solve.dyalog`) resolves this using
+vendored `trust`'s own `Result` namespace (`APLSource/Result.apln`), a
+set of small predicates for classifying why a solve terminated, called
+directly on the namespace `Min` returns:
+
+- `Result.StalledByEscalation` - a relative-change stall with damping
+  already escalated past `1` (`Newton.aplo`'s own signal that the last
+  rejected step's damping increase, not genuine convergence, is what
+  drove the relative-change metric below threshold).
+- `Result.StalledByPrecision` - a relative-change stall at *low*
+  damping (`≤1`) with a genuinely nonzero final gradient: the
+  ill-conditioning-driven precision-loss case `StalledByEscalation`
+  can't see, since damping never escalated there at all. Uses the same
+  `1e-2` gradient-norm heuristic this project's own harness previously
+  computed independently before this predicate existed - not a value
+  `trust` itself derives from anything, just a heuristic with a large
+  measured margin either side (genuine convergences, including the
+  large-residual case above, leave a gradient norm at or below `1.6e-6`;
+  the indefinite-Hessian stalls this distinguishes leave one at `4.8`
+  or higher).
+
+A relative-change stall is reported as the distinct `RunStatus.STALLED`
+when either predicate fires, `CONVERGED` otherwise - which also
+correctly covers `Result.Converged`'s own strict `cost<tc` guarantee
+and the large-residual/outliers case, both of which leave neither
+predicate's signature (no damping escalation, a small final gradient).
+
+`Result.StalledByPrecision` shipped upstream (`da5dfcc`) with its guard
+condition inverted - it returned false exactly for the low-damping case
+its own name and comment describe, only ever agreeing with
+`StalledByEscalation`. Confirmed directly (`ill_conditioned(kappa=1e7)`
+`trust-exact`, `dnorm≈0.001`): before the fix, `StalledByPrecision`
+returned `0`; fixed upstream (`8ba5494`) before landing here.
 
 This gradient-norm check does not apply to a bounded request
 (`req.bounds` set): at an active-boundary optimum, the unconstrained
@@ -120,6 +140,53 @@ KKT-aware (projected) gradient check this harness does not compute. A
 bounded request's relative-change stall is reported `CONVERGED`
 unconditionally, exactly as before this fix - a known limitation, not a
 claim this fix resolves bounded near-optimality detection.
+
+`grad_norm_final` itself no longer costs an extra evaluation: `Min.aplo`
+(vendored `trust` commit `d151b8b`) now returns the final gradient it
+already computes internally on every accepted step (used to compute the
+next search direction) as `r.grad`, read directly instead of the
+harness re-evaluating the problem at the final point via a separate
+probe.
+
+## Parameter scaling: trust's pscale vs scipy's x_scale
+
+`RunConfig.x_scale` maps to two structurally different mechanisms.
+
+scipy's `x_scale` (`least_squares`-only, `lm`/`trf`/`dogbox`) accepts
+either a fixed per-parameter array or the string `"jac"`: an *adaptive*
+rescaling recomputed every iteration from the current Jacobian's own
+column norms.
+
+`trust`'s `pscale` (vendored commit `118263c`) is a *fixed* vector only
+(`x = pscale × y`, a plain linear reparameterisation around the
+evaluation function) - there is no adaptive equivalent. This isn't a
+gap: `Newton.aplo`'s own damping already scales by `diag(H)`, not
+`diag(1)`, giving an adaptive-scaling effect internally regardless of
+`pscale`, so a separate adaptive mode would be largely redundant.
+
+`pscale` applies to `lm` and `BFGS` (`apl_backend.py` maps a fixed
+`RunConfig.x_scale` to it for both), but not `trust-exact`: the
+wrapper (`Min.aplo`'s `PS`) only rescales a 2-item `(value, derivative)`
+return - `lm`'s `(residual, jacobian)`, `BFGS`'s `(cost, gradient)` -
+not `trust-exact`'s 3-item `(cost, hessian, gradient)`. A Hessian needs
+outer-product scaling on both axes, not a column scale, so `trust-exact`
+rejects a fixed `x_scale` explicitly rather than silently applying it
+wrong. `"jac"` is rejected for every method: no backend-native adaptive
+equivalent exists to map it to.
+
+This closes a real capability gap, not just a missing code path.
+Confirmed directly (`scaling.make(1e8)`, `lm`, unscaled): `trust-apl`
+reports `FAILED` with `cost_final≈2e16`. With a fixed `x_scale=(1.0,
+1e-8)` - matching this problem's own known anisotropy (`scaling.make`'s
+own docstring: the Hessian's diagonal ratio is exactly `scale**2`) -
+the same request reports `CONVERGED` with `cost_final≈1.9e-12`.
+`trust_bench.studies.scaling`'s own sweep now exercises this
+(`X_SCALES` gains `"fixed"`, a per-`scale` `(1.0, 1.0/scale)` value),
+alongside a `trust-apl`-only exercise of `BFGS` with the same fixed
+`pscale` - a `trust`-only capability, since scipy's own `BFGS`
+(`minimize`-family) has no `x_scale` concept at all to compare against,
+matching the `robust_loss` study's own precedent for a backend-specific
+capability with no cross-backend comparison point.
 
 ## Capability boundary: trust-apl's BFGS under ill-conditioning and scale
 
