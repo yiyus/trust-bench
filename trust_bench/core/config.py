@@ -11,6 +11,7 @@ class RunConfig:
     derivative_mode: str | None = None
     loss: str = "linear"
     x_scale: Any = None
+    f_scale: float | None = None
 
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)

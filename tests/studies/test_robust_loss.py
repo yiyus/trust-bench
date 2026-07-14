@@ -1,9 +1,13 @@
+import numpy as np
+from scipy.optimize import least_squares as scipy_least_squares
+
 from trust_bench.backends import BACKENDS
 from trust_bench.backends.scipy_backend import SciPyBackend
 from trust_bench.core.backend import Backend, Capabilities, MethodCapabilities
 from trust_bench.core.provenance import capture
 from trust_bench.problems.families import outliers
 from trust_bench.studies.robust_loss import (
+    _F_SCALE_FOR_LOSS,
     FRACTIONS,
     SCIPY_LOSSES,
     TRUST_LOSSES,
@@ -106,6 +110,33 @@ def test_trust_loss_precision_skips_a_backend_it_has_no_method_mapping_for():
     precision = trust_loss_precision(fractions=[0.0], backends=[_UnmappedBackend()])
 
     assert precision == {}
+
+
+def test_f_scale_for_loss_matches_trusts_own_textbook_tuning_constants():
+    # trust's Loss.apln (backends_ext/apl/trust/APLSource/Loss.apln)
+    # bakes these in directly: huber=1.345, cauchy=2.385, softl1=1,
+    # arctan=1 - the ~95%-asymptotic-efficiency constants, not scipy's
+    # own default of 1.0 for every loss.
+    assert _F_SCALE_FOR_LOSS == {"huber": 1.345, "cauchy": 2.385, "soft_l1": 1.0, "arctan": 1.0}
+
+
+def test_scipy_loss_precision_passes_trusts_tuning_constant_as_f_scale():
+    # Pinned against a direct scipy call using the same f_scale, for a
+    # loss where trust's constant (1.345) actually differs from scipy's
+    # own default (1.0) - soft_l1/arctan wouldn't distinguish "wired
+    # correctly" from "coincidentally already matching".
+    fraction = 0.2
+    problem = outliers.make(fraction)
+    x0 = np.asarray(problem.starts["standard"], dtype=float)
+
+    precision = scipy_loss_precision(fractions=[fraction], losses=["huber"], backends=[SciPyBackend()])
+
+    expected = scipy_least_squares(
+        problem.residual, x0, jac=problem.jacobian, method="trf", loss="huber", f_scale=1.345, max_nfev=200
+    )
+    expected_distance = float(np.linalg.norm(expected.x - outliers.TRUE_PARAMETERS))
+
+    assert precision[(fraction, "huber", "scipy")] == expected_distance
 
 
 def test_outliers_true_parameters_are_the_fixed_underlying_trend_not_the_biased_l2_optimum():
