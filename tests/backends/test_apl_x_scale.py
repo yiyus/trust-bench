@@ -16,14 +16,18 @@ BACKEND = APLBackend()
 START = "standard"
 
 
-def test_lm_rejects_adaptive_x_scale():
+@pytest.mark.parametrize("method", ["lm", "BFGS", "trust-exact"])
+def test_every_method_rejects_adaptive_x_scale(method):
     # No equivalent of scipy's x_scale="jac" (recomputed every
     # iteration from the current Jacobian): Newton.aplo's own damping
     # by diag(H) already gives an adaptive-scaling effect internally.
+    # A blanket rejection, not lm-specific - trust-exact's own fixed
+    # rejection below (a different reason) would mask this one, so
+    # this is the only test exercising it there.
     problem = scaling.make(1.0)
 
     with pytest.raises(ValueError, match="x_scale"):
-        BACKEND.solve(problem, "lm", START, RunConfig(max_iter=200, x_scale="jac"))
+        BACKEND.solve(problem, method, START, RunConfig(max_iter=200, x_scale="jac"))
 
 
 def test_trust_exact_rejects_a_fixed_x_scale():
