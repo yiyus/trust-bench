@@ -131,6 +131,22 @@ its own name and comment describe, only ever agreeing with
 `trust-exact`, `dnorm≈0.001`): before the fix, `StalledByPrecision`
 returned `0`; fixed upstream (`8ba5494`) before landing here.
 
+A second upstream bug (fixed at `5acffe4`/`bd62a45`/`ae359a0`): neither
+`StalledByEscalation` nor `StalledByPrecision` checked `~Converged`
+before firing, so a genuinely converged run (`cost` far below `tolc`)
+whose gradient norm happened to sit just over the `1e-2` heuristic could
+still be misreported `STALLED`. Confirmed directly
+(`scaling.make(1e6)`/`lm`, unscaled: `cost_final≈1.95e-16`,
+`grad_norm_final≈0.0198`, just over `gtol`): reported `STALLED` before
+the fix, `CONVERGED` after. The same investigation surfaced two further
+bugs in the bare `Result.Stalled` predicate itself (an `∨`/`∧` slip that
+briefly broadened it to fire on any non-convergence, and a missing
+`rel≥0` guard against `Newton.aplo`'s own "not yet computed" sentinel,
+`rel=-1`) - neither corrupted this project's own report, since
+`solve.dyalog` only calls the two derived predicates, both of which
+were fixed directly and now delegate to the corrected `Stalled`
+internally rather than duplicating the same `tolc`/`tolr`/`rel` logic.
+
 This gradient-norm check does not apply to a bounded request
 (`req.bounds` set): at an active-boundary optimum, the unconstrained
 gradient is genuinely nonzero by construction (measured, `quadratic`'s
