@@ -1,4 +1,4 @@
-∇res←Solve req;f;hf;method;calls;hcalls;fd;lower;cfg;r;gnorm;bounded;status;parsed;family;param;isParam
+∇res←Solve req;f;hf;method;calls;hcalls;fd;lower;cfg;r;gnorm;bounded;status;parsed;family;param;isParam;t0;solveMs
   f←NameFor req.problem_id
   isParam←0
   :If 0=≢f
@@ -84,7 +84,13 @@
   :If 2=⎕NC'req.pscale'
       cfg.pscale←req.pscale
   :EndIf
+  ⍝ Computation time only, excluding request parsing/dispatch above and
+  ⍝ response assembly below - the number RunResult.timing is meant to
+  ⍝ compare across backends, not this harness's own request-handling
+  ⍝ overhead.
+  t0←⎕AI[2]
   r←lower Min(req.x0)cfg
+  solveMs←(⎕AI[2])-t0
   gnorm←0.5*⍨+/r.grad×r.grad
   :If Result.MaxIterations r
       status←'MAX_ITER'
@@ -112,4 +118,5 @@
   res.n_jeval←NULL
   res.n_heval←hcalls
   res.grad_norm_final←gnorm
+  res.solve_ms←solveMs
 ∇

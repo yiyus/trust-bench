@@ -368,6 +368,26 @@ def test_run_report_raises_clearly_when_parity_scatter_is_explicitly_selected_wi
         run_report(tmp_path, only=["parity_scatter"])
 
 
+def test_run_report_measures_real_timing_for_every_study_it_runs(tmp_path, monkeypatch):
+    # A study's own sweep() never opts into RunConfig.measure_timing
+    # itself (it would slow down every test that calls the same
+    # function directly for correctness, not performance) - run_report
+    # is the one real invocation path that must actually produce
+    # TimingStats, per this issue's own acceptance criterion.
+    from trust_bench.core import runner as runner_module
+
+    observed = {}
+
+    def spy_study(output_dir, backends):
+        observed["measuring"] = runner_module._measure_timing.get()
+
+    monkeypatch.setitem(STUDIES, "baseline", spy_study)
+
+    run_report(tmp_path, only=["baseline"])
+
+    assert observed["measuring"] is True
+
+
 def test_run_report_raises_clearly_when_a_study_does_not_support_the_selected_backend(tmp_path, monkeypatch):
     stub = _AlwaysErrorsBackend()
     monkeypatch.setitem(AVAILABLE_BACKENDS, stub.name, stub)

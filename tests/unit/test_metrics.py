@@ -1,7 +1,7 @@
 import math
 import warnings
 
-from trust_bench.core.metrics import basin_rate, order, rate
+from trust_bench.core.metrics import basin_rate, mad, order, rate
 
 
 def test_order_estimates_two_for_a_quadratically_convergent_sequence():
@@ -57,3 +57,17 @@ def test_basin_rate_matches_a_hand_computed_fraction_on_a_fixture_set():
 
 def test_basin_rate_returns_nan_for_an_empty_set_of_starts():
     assert math.isnan(basin_rate([], tol=1e-6))
+
+
+def test_mad_matches_a_hand_computed_value():
+    # median=3.0; absolute deviations=[2,1,0,1,97]; median of those=1.0;
+    # scaled by 1.4826 (the normal-consistent constant this project
+    # already uses elsewhere, e.g. robust_loss.py's irls_tukey) for a
+    # MAD directly comparable to a standard deviation.
+    values = [1.0, 2.0, 3.0, 4.0, 100.0]
+
+    assert math.isclose(mad(values), 1.4826, abs_tol=1e-6)
+
+
+def test_mad_is_zero_for_identical_values():
+    assert mad([5.0, 5.0, 5.0]) == 0.0

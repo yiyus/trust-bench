@@ -15,8 +15,14 @@ import numpy as np
 from trust_bench.core.backend import Backend, Capabilities, MethodCapabilities
 from trust_bench.core.provenance import capture, harness_git_sha
 from trust_bench.core.result import RunResult, RunStatus
+from trust_bench.core.timing import N_REPS, WARMUP, summarize
 
 _SESSION_SCRIPT = Path(__file__).resolve().parents[2] / "backends_ext" / "apl" / "run_session.sh"
+
+# Dyalog's interpreter is single-threaded for this workload (Newton.aplo/
+# Min.aplo don't parallelise) - nothing to actively pin, unlike scipy's
+# BLAS-backed NumPy calls, so this is a recorded fact, not a knob set.
+_THREAD_COUNT = 1
 
 _STATUS = {
     "CONVERGED": RunStatus.CONVERGED,
@@ -59,6 +65,7 @@ def _timeout_result(message: str) -> dict:
         "n_jeval": None,
         "n_heval": None,
         "grad_norm_final": None,
+        "solve_ms": None,
     }
 
 
@@ -349,7 +356,43 @@ class APLBackend(Backend):
         if config.x_scale is not None:
             request["pscale"] = np.asarray(config.x_scale, dtype=float).tolist()
 
-        response = _send_request(request)
+        if not config.measure_timing:
+            # The common case: a single round trip, no repeated
+            # measurement - unchanged cost from before RunResult.timing
+            # existed. Multiplying every solve() call by WARMUP+N_REPS
+            # regardless of problem cost is what real report generation
+            # wants, not what an ordinary correctness check needs -
+            # confirmed directly to matter: a single already-slow test
+            # (dimensionality(n=1000)/trust-exact) went from ~4s to
+            # ~23s when this was unconditional.
+            response = _send_request(request)
+            timing = None
+        else:
+            # Warm-up run(s) discarded, then N_REPS measured repetitions -
+            # docs/plans/trust-bench.md Section 7's timing policy. Each
+            # repetition is just an ordinary _send_request round trip
+            # through the already-persistent session (a few ms), not a
+            # fresh subprocess spawn, so no special batching is needed
+            # here. The persistent session only removes interpreter-
+            # startup cost from each repetition; a round trip still pays
+            # JSON encoding/decoding and IPC transfer, which is why
+            # solve_ms is measured inside solve.dyalog itself (⎕AI
+            # around the Min call) rather than by wall-clocking this
+            # round trip. A response with an error stops the loop
+            # immediately rather than padding out the remaining
+            # repetitions.
+            samples = []
+            for i in range(WARMUP + N_REPS):
+                response = _send_request(request)
+                if response["status"] == "ERROR":
+                    break
+                if i >= WARMUP:
+                    samples.append(response["solve_ms"] / 1000.0)
+            timing = (
+                summarize(samples, warmup=WARMUP, n_reps=N_REPS, thread_count=_THREAD_COUNT)
+                if len(samples) == N_REPS
+                else None
+            )
 
         x_final = response["x_final"]
         dist_to_opt = cost_gap = None
@@ -376,7 +419,7 @@ class APLBackend(Backend):
             n_jeval=response["n_feval"],
             n_heval=response["n_heval"],
             trace=None,
-            timing=None,
+            timing=timing,
             config=config,
             provenance=self.environment(),
             harness_git_sha=harness_git_sha(),

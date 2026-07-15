@@ -1,13 +1,21 @@
+import time
 from datetime import datetime, timezone
 
 import numpy as np
 from scipy.optimize import BFGS as BFGSHessianUpdate
 from scipy.optimize import least_squares, minimize
+from threadpoolctl import threadpool_limits
 
 from trust_bench.core.backend import Backend, Capabilities, MethodCapabilities
 from trust_bench.core.config import RunConfig
 from trust_bench.core.provenance import capture, harness_git_sha
 from trust_bench.core.result import RunResult, RunStatus
+from trust_bench.core.timing import N_REPS, WARMUP, summarize
+
+# Pinned to 1 so a measurement reflects single-threaded algorithmic cost
+# rather than a machine-dependent BLAS parallel-scaling factor, matching
+# docs/plans/trust-bench.md Section 7's "pinned BLAS thread count".
+_THREAD_COUNT = 1
 
 _LEAST_SQUARES_METHODS = frozenset({"lm", "trf", "dogbox"})
 _MINIMIZE_USES_HESSIAN = frozenset({"Newton-CG", "trust-exact", "trust-constr", "trust-krylov"})
@@ -163,17 +171,39 @@ class SciPyBackend(Backend):
         if method not in self.capabilities().methods:
             raise ValueError(f"{self.name} has no method {method!r}")
 
-        if method in _LEAST_SQUARES_METHODS:
-            if problem.kind == "scalar":
-                # lm/trf/dogbox need a genuine residual vector (they
-                # minimise sum-of-squares internally); a kind="scalar"
-                # problem's residual() is already the cost, not a
-                # residual, so least_squares would silently drive it
-                # toward zero rather than to its true minimum.
-                raise ValueError(f"{method} requires a residual vector; {problem.id!r} is kind='scalar'")
-            result, status, grad_final = self._solve_least_squares(problem, method, start, config)
+        if method in _LEAST_SQUARES_METHODS and problem.kind == "scalar":
+            # lm/trf/dogbox need a genuine residual vector (they
+            # minimise sum-of-squares internally); a kind="scalar"
+            # problem's residual() is already the cost, not a
+            # residual, so least_squares would silently drive it
+            # toward zero rather than to its true minimum.
+            raise ValueError(f"{method} requires a residual vector; {problem.id!r} is kind='scalar'")
+
+        def _run_once():
+            if method in _LEAST_SQUARES_METHODS:
+                return self._solve_least_squares(problem, method, start, config)
+            return self._solve_minimize(problem, method, start, config)
+
+        if not config.measure_timing:
+            # The common case: a single solve, no repeated measurement -
+            # unchanged cost from before RunResult.timing existed.
+            result, status, grad_final = _run_once()
+            timing = None
         else:
-            result, status, grad_final = self._solve_minimize(problem, method, start, config)
+            # Warm-up run(s) discarded, then N_REPS measured repetitions -
+            # docs/plans/trust-bench.md Section 7's timing policy. Thread
+            # count is pinned for the whole measurement, not just
+            # recorded, so the number is reproducible rather than
+            # whatever the environment's default happens to be.
+            with threadpool_limits(limits=_THREAD_COUNT):
+                for _ in range(WARMUP):
+                    _run_once()
+                samples = []
+                for _ in range(N_REPS):
+                    t0 = time.perf_counter()
+                    result, status, grad_final = _run_once()
+                    samples.append(time.perf_counter() - t0)
+            timing = summarize(samples, warmup=WARMUP, n_reps=N_REPS, thread_count=_THREAD_COUNT)
 
         x_final = np.asarray(result.x, dtype=float)
         optimum = problem.optima[0]
@@ -198,7 +228,7 @@ class SciPyBackend(Backend):
             n_jeval=getattr(result, "njev", None),
             n_heval=getattr(result, "nhev", 0),
             trace=None,
-            timing=None,
+            timing=timing,
             config=config,
             provenance=self.environment(),
             harness_git_sha=harness_git_sha(),

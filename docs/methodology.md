@@ -406,3 +406,43 @@ set, not a gap to close by more report-side wiring: the parity blocker
 specifically would need `trust-apl` to gain a Jacobian-free scalar
 evaluator first (a real, nontrivial capability gap in its own right, not
 a reporting-layer fix) - out of scope here, and not attempted.
+
+## Timing measurement: `RunResult.timing`
+
+Opt-in via `RunConfig.measure_timing` (default `False`): a plain
+`solve()` call costs exactly one solve, `timing=None`, unchanged from
+before this measurement existed. Making the repeated measurement
+unconditional regressed the full test suite badly - every correctness
+check that calls `solve()`, not just report generation, paid the full
+repetition cost, compounding worst against the already-slowest tests
+(confirmed directly: `dimensionality(n=1000)`/`trust-exact` went from
+~4s to ~23s). No study sets `measure_timing=True` itself, for the same
+reason: each one is also called directly by tests that want correctness,
+not a timing measurement. Instead, `trust_bench.core.runner.
+measuring_timing()` (a `contextvars`-based context manager) forces it
+on for every `run()` call made inside it; `cli.py`'s `run_report` wraps
+its whole per-study loop in this context once, so a real `trust-bench
+report` run gets genuine `TimingStats` throughout without any study
+module needing its own opt-in.
+
+When it is set, both backends follow the same policy (Section 7 of the
+design doc): one discarded warm-up solve, then five measured repetitions, reporting
+median and MAD (1.4826-scaled, matching `robust_loss.py`'s own
+`irls_tukey` convention) rather than mean/stddev.
+
+**scipy**: each measured repetition is wrapped in `time.perf_counter()`,
+all inside one `threadpoolctl.threadpool_limits(limits=1)` context -
+pinned to a single BLAS thread so the number reflects single-threaded
+algorithmic cost, not a machine-dependent parallel-scaling factor that
+would vary between whoever's machine ran the comparison.
+
+**trust-apl**: measured *inside* `solve.dyalog` itself, via `⎕AI[2]`
+(confirmed directly: computation time in milliseconds) wrapped tightly
+around the `Min` call, not by wall-clocking the round trip from Python.
+This matters because of what a round trip includes: since #139, a
+repeated call no longer pays interpreter-startup cost, but it still
+pays JSON encoding/decoding and the request/response IPC transfer -
+wall-clocking the whole `_send_request` call would count that as if it
+were solve time. `thread_count` is recorded as `1` without an active
+pinning call: Dyalog's interpreter is single-threaded for this workload
+(`Newton.aplo`/`Min.aplo` don't parallelise), nothing to pin.
