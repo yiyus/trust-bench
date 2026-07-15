@@ -9,20 +9,36 @@ from trust_bench.core.result import RunStatus
 from trust_bench.problems import rosenbrock
 
 
-_real_run = subprocess.run
+def _never_ready(*args, **kwargs):
+    return [], [], []
 
 
-def _raise_timeout_for_the_harness_only(cmd, *args, **kwargs):
-    # subprocess.run is a shared, module-level function: patching it
-    # unconditionally would also break unrelated calls this test doesn't
-    # own (e.g. harness_git_sha's own "git rev-parse HEAD").
-    if "run_harness.sh" in cmd[1]:
-        raise subprocess.TimeoutExpired(cmd=cmd, timeout=60)
-    return _real_run(cmd, *args, **kwargs)
+def _start_harmless_stub_session():
+    # A real, always-available subprocess (`cat`, no dyalogscript
+    # dependency) standing in for the session: these tests exercise
+    # _send_request's own timeout/recovery bookkeeping, not the real APL
+    # protocol, so they shouldn't require Dyalog to be installed to run.
+    return subprocess.Popen(["cat"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
 
-def test_solve_reports_a_clean_error_status_when_the_harness_times_out(monkeypatch):
-    monkeypatch.setattr(apl_backend.subprocess, "run", _raise_timeout_for_the_harness_only)
+@pytest.fixture(autouse=True)
+def _stub_session(monkeypatch):
+    # _session is a module-level singleton shared with every other test
+    # file; substituting a fresh stub (rather than reusing/killing
+    # whatever real session another file may already have warmed up)
+    # keeps this file's own timeout simulation isolated, and monkeypatch
+    # restores the original _session/_start_session automatically at
+    # teardown - killing the stub here must happen first, before that
+    # restore, or _kill_session would tear down someone else's session.
+    monkeypatch.setattr(apl_backend, "_session", None)
+    monkeypatch.setattr(apl_backend, "_start_session", _start_harmless_stub_session)
+    yield
+    apl_backend._kill_session()
+
+
+def test_solve_reports_a_clean_error_status_when_the_session_does_not_respond(monkeypatch):
+    monkeypatch.setattr(apl_backend, "_TIMEOUT_SECONDS", 0.2)
+    monkeypatch.setattr(apl_backend.select, "select", _never_ready)
 
     result = APLBackend().solve(rosenbrock.PROBLEM, "lm", "standard", RunConfig(max_iter=200))
 
@@ -33,8 +49,18 @@ def test_solve_reports_a_clean_error_status_when_the_harness_times_out(monkeypat
     assert "did not complete" in result.message
 
 
-def test_evaluate_problem_raises_a_clear_error_when_the_harness_times_out(monkeypatch):
-    monkeypatch.setattr(apl_backend.subprocess, "run", _raise_timeout_for_the_harness_only)
+def test_evaluate_problem_raises_a_clear_error_when_the_session_does_not_respond(monkeypatch):
+    monkeypatch.setattr(apl_backend, "_TIMEOUT_SECONDS", 0.2)
+    monkeypatch.setattr(apl_backend.select, "select", _never_ready)
 
     with pytest.raises(RuntimeError, match="did not complete"):
         evaluate_problem("rosenbrock", [0.0, 0.0])
+
+
+def test_a_timed_out_session_is_killed_not_reused(monkeypatch):
+    monkeypatch.setattr(apl_backend, "_TIMEOUT_SECONDS", 0.2)
+    monkeypatch.setattr(apl_backend.select, "select", _never_ready)
+
+    APLBackend().solve(rosenbrock.PROBLEM, "lm", "standard", RunConfig(max_iter=200))
+
+    assert apl_backend._session is None

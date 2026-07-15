@@ -4,34 +4,14 @@ set -euo pipefail
 input="$1"
 output="$2"
 apl_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-trust_source="$apl_dir/trust/APLSource"
+# shellcheck source=_sources.sh
+source "$apl_dir/_sources.sh"
 
 script="$(mktemp -t trust-bench-apl-harness.XXXXXX.dyalog)"
 trap 'rm -f "$script"' EXIT
 
 {
-  echo "⎕SE.Link.Import '#' '$trust_source'"
-  cat "$apl_dir/problems/rosenbrock.dyalog"
-  cat "$apl_dir/problems/beale.dyalog"
-  cat "$apl_dir/problems/powell.dyalog"
-  cat "$apl_dir/problems/helical.dyalog"
-  cat "$apl_dir/problems/expdec.dyalog"
-  cat "$apl_dir/problems/quadratic.dyalog"
-  cat "$apl_dir/problems/linear.dyalog"
-  cat "$apl_dir/problems/noisy_expdec.dyalog"
-  cat "$apl_dir/problems/logistic.dyalog"
-  cat "$apl_dir/problems/michaelis_menten.dyalog"
-  cat "$apl_dir/problems/gaussian_peak.dyalog"
-  cat "$apl_dir/problems/scaling.dyalog"
-  cat "$apl_dir/problems/ill_conditioned.dyalog"
-  cat "$apl_dir/problems/large_residual.dyalog"
-  cat "$apl_dir/problems/outliers.dyalog"
-  cat "$apl_dir/problems/dimensionality.dyalog"
-  cat "$apl_dir/dispatch.dyalog"
-  cat "$apl_dir/null.dyalog"
-  cat "$apl_dir/error_result.dyalog"
-  cat "$apl_dir/solve.dyalog"
-  cat "$apl_dir/evaluate.dyalog"
+  _apl_write_sources "$apl_dir"
   cat "$apl_dir/run.dyalog"
 } > "$script"
 
