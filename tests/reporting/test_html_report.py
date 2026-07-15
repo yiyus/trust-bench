@@ -1,30 +1,138 @@
+import numpy as np
 import pandas as pd
+import pytest
 
+from trust_bench.reporting import colors
 from trust_bench.reporting.html_report import build_html_report, save_html_report
 from trust_bench.reporting.plots import plot_metric_vs_sweep, save_figure
 from trust_bench.reporting.tables import save_table
 
+_TIMING_COLUMNS = ["timing_median", "timing_mad", "timing_n_reps", "timing_warmup", "timing_thread_count"]
 
-def test_build_html_report_embeds_every_table_in_the_directory(tmp_path):
-    df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
-    save_table(df, tmp_path / "example.csv")
+
+def _study_df(with_timing=False):
+    row = dict(
+        backend="scipy",
+        status="CONVERGED",
+        message=None,
+        dist_to_opt=1e-9,
+        cost_gap=1e-12,
+        grad_norm_final=1e-8,
+        n_feval=12,
+    )
+    other = dict(row, backend="trust-apl", status="FAILED")
+    df = pd.DataFrame([row, other])
+    for column in _TIMING_COLUMNS:
+        df[column] = np.nan
+    if with_timing:
+        df.loc[0, ["timing_median", "timing_mad", "timing_n_reps", "timing_warmup", "timing_thread_count"]] = [
+            0.0123,
+            0.0004,
+            5,
+            1,
+            1,
+        ]
+    return df
+
+
+def _write_study(output_dir, name, with_plot=False, with_timing=False):
+    df = _study_df(with_timing=with_timing)
+    save_table(df, output_dir / f"{name}.csv")
+    if with_plot:
+        fig = plot_metric_vs_sweep(df.assign(x=[1, 2]), x="x", y="dist_to_opt", group="backend")
+        save_figure(fig, output_dir / f"{name}.png")
+
+
+@pytest.fixture
+def populated_report(tmp_path):
+    _write_study(tmp_path, "parity_scatter", with_plot=True)
+    _write_study(tmp_path, "capability_frontier", with_plot=True)
+    _write_study(tmp_path, "capability_matrix", with_plot=True)
+    _write_study(tmp_path, "baseline")
+    _write_study(tmp_path, "large_residual", with_plot=True, with_timing=True)
+    _write_study(tmp_path, "robust_loss", with_plot=True)
+    # bounded: table-only, no plot, matching cli.py's own real behaviour.
+    _write_study(tmp_path, "bounded")
+    return tmp_path
+
+
+def test_headline_artefacts_are_rendered_before_any_themed_study(populated_report):
+    html = build_html_report(populated_report)
+
+    headline_position = html.index("<h3>parity_scatter</h3>")
+    themed_position = html.index("<h3>baseline</h3>")
+    assert headline_position < themed_position
+
+
+def test_tier_2_studies_are_grouped_under_their_theme_headings(populated_report):
+    html = build_html_report(populated_report)
+
+    assert "Common problems" in html
+    assert "Difficulty axes" in html
+    assert "Special capabilities" in html
+    common_problems = html.index("Common problems")
+    baseline = html.index("<h3>baseline</h3>")
+    difficulty_axes = html.index("Difficulty axes")
+    large_residual = html.index("<h3>large_residual</h3>")
+    special_capabilities = html.index("Special capabilities")
+    robust_loss = html.index("<h3>robust_loss</h3>")
+    assert common_problems < baseline < difficulty_axes
+    assert difficulty_axes < large_residual < special_capabilities
+    assert special_capabilities < robust_loss
+
+
+def test_every_rendered_study_has_a_one_line_caption(populated_report):
+    html = build_html_report(populated_report)
+
+    assert "floor every backend must clear" in html  # baseline
+    assert "Gauss-Newton" in html  # large_residual
+
+
+def test_a_study_with_no_artefacts_in_the_output_directory_is_silently_omitted(populated_report):
+    html = build_html_report(populated_report)
+
+    # dimensionality was never written to this report's output_dir (e.g.
+    # skipped for a coverage gap or --skip-slow); it must not appear, and
+    # building the report must not crash over its absence.
+    assert "dimensionality" not in html
+
+
+def test_status_values_are_rendered_as_coloured_pills_not_bare_text(populated_report):
+    html = build_html_report(populated_report)
+
+    assert colors.status_color("CONVERGED") in html
+    assert colors.status_color("FAILED") in html
+    assert 'class="pill"' in html or "pill" in html
+
+
+def test_a_fixed_backend_colour_legend_is_always_shown(populated_report):
+    html = build_html_report(populated_report)
+
+    for name, color in colors.BACKEND_COLORS.items():
+        assert name in html
+        assert color in html
+
+
+def test_timing_columns_are_displayed_as_median_pm_mad_with_units(populated_report):
+    html = build_html_report(populated_report)
+
+    assert "12.3" in html  # 0.0123s -> 12.3ms
+    assert "±" in html
+    assert "ms" in html
+
+
+def test_a_timing_caveat_appears_when_any_study_has_timing_data(populated_report):
+    html = build_html_report(populated_report)
+
+    assert "single" in html.lower() or "not a claim" in html.lower() or "cross-language" in html.lower()
+
+
+def test_no_timing_caveat_is_shown_when_no_study_measured_timing(tmp_path):
+    _write_study(tmp_path, "baseline")
 
     html = build_html_report(tmp_path)
 
-    assert "example" in html
-    assert "<table" in html
-    assert "1" in html and "3" in html
-
-
-def test_build_html_report_embeds_every_plot_as_a_self_contained_image(tmp_path):
-    df = pd.DataFrame({"x": [1, 2, 3], "y": [1, 4, 9]})
-    fig = plot_metric_vs_sweep(df, x="x", y="y")
-    save_figure(fig, tmp_path / "example.png")
-
-    html = build_html_report(tmp_path)
-
-    assert "example" in html
-    assert "data:image/png;base64," in html
+    assert "cross-language" not in html.lower()
 
 
 def test_save_html_report_writes_a_readable_file(tmp_path):

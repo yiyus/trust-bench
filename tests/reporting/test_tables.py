@@ -3,11 +3,18 @@ import pytest
 
 from trust_bench.core.config import RunConfig
 from trust_bench.core.provenance import capture
-from trust_bench.core.result import RunResult, RunStatus
+from trust_bench.core.result import RunResult, RunStatus, TimingStats
 from trust_bench.reporting.tables import results_to_dataframe, save_table
 from trust_bench.studies.large_residual import RHOS, backend_results
 
 _METRIC_COLUMNS = ["status", "message", "dist_to_opt", "cost_gap", "grad_norm_final", "n_feval"]
+_TIMING_COLUMNS = [
+    "timing_median",
+    "timing_mad",
+    "timing_n_reps",
+    "timing_warmup",
+    "timing_thread_count",
+]
 
 
 def _run_result(**overrides):
@@ -54,7 +61,7 @@ def test_results_to_dataframe_produces_one_row_per_result(results, df):
 
 
 def test_results_to_dataframe_has_the_sweep_keys_and_metric_columns(df):
-    for column in ["rho", "backend", *_METRIC_COLUMNS]:
+    for column in ["rho", "backend", *_METRIC_COLUMNS, *_TIMING_COLUMNS]:
         assert column in df.columns
     assert set(df["rho"]) == set(RHOS)
 
@@ -103,3 +110,36 @@ def test_a_completed_results_message_is_its_own_termination_explanation():
     df = results_to_dataframe(results, key_names=["scale", "method"])
 
     assert df["message"].iloc[0] == "`gtol` termination condition is satisfied."
+
+
+def test_real_timing_stats_are_flattened_into_their_own_columns():
+    timing = TimingStats(median=0.0123, mad=0.0004, n_reps=5, warmup=1, thread_count=1)
+    results = {(1.0, "lm"): _run_result(timing=timing)}
+
+    df = results_to_dataframe(results, key_names=["scale", "method"])
+
+    assert df["timing_median"].iloc[0] == 0.0123
+    assert df["timing_mad"].iloc[0] == 0.0004
+    assert df["timing_n_reps"].iloc[0] == 5
+    assert df["timing_warmup"].iloc[0] == 1
+    assert df["timing_thread_count"].iloc[0] == 1
+
+
+def test_a_none_timing_is_blank_not_a_crash():
+    # measure_timing defaults to False: most results have no timing at
+    # all, not just exception rows - this must not raise.
+    results = {(1.0, "lm"): _run_result(timing=None)}
+
+    df = results_to_dataframe(results, key_names=["scale", "method"])
+
+    for column in _TIMING_COLUMNS:
+        assert pd.isna(df[column].iloc[0])
+
+
+def test_a_declared_unsupported_rejections_timing_columns_are_also_blank():
+    results = {(1.0, "lm"): ValueError("lm does not support x_scale='jac'")}
+
+    df = results_to_dataframe(results, key_names=["scale", "method"])
+
+    for column in _TIMING_COLUMNS:
+        assert pd.isna(df[column].iloc[0])
