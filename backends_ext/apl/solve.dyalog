@@ -87,7 +87,7 @@
   ⍝ Computation time only, excluding request parsing/dispatch above and
   ⍝ response assembly below - the number RunResult.timing is meant to
   ⍝ compare across backends, not this harness's own request-handling
-  ⍝ overhead (#138).
+  ⍝ overhead.
   t0←⎕AI[2]
   r←lower Min(req.x0)cfg
   solveMs←(⎕AI[2])-t0

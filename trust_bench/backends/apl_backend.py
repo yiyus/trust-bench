@@ -358,15 +358,16 @@ class APLBackend(Backend):
 
         # Warm-up run(s) discarded, then N_REPS measured repetitions -
         # docs/plans/trust-bench.md Section 7's timing policy. Each
-        # repetition is now just an ordinary _send_request round trip
-        # through the already-persistent session (a few ms, per #139),
-        # not a fresh subprocess spawn - no special batching needed for
-        # this part. What #139 doesn't solve on its own: solve_ms is
-        # measured inside solve.dyalog itself (⎕AI around the Min call),
-        # not wall-clocked here, so the reported number excludes this
-        # round trip's own IPC/JSON-transfer overhead, not just
-        # interpreter startup. A response with an error stops the loop
-        # immediately rather than padding out the remaining repetitions.
+        # repetition is just an ordinary _send_request round trip
+        # through the already-persistent session (a few ms), not a
+        # fresh subprocess spawn, so no special batching is needed here.
+        # The persistent session only removes interpreter-startup cost
+        # from each repetition; a round trip still pays JSON encoding/
+        # decoding and IPC transfer, which is why solve_ms is measured
+        # inside solve.dyalog itself (⎕AI around the Min call) rather
+        # than by wall-clocking this round trip. A response with an
+        # error stops the loop immediately rather than padding out the
+        # remaining repetitions.
         samples = []
         for i in range(WARMUP + N_REPS):
             response = _send_request(request)
