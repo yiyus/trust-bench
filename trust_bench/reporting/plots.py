@@ -7,6 +7,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.colors import ListedColormap  # noqa: E402
 
+from trust_bench.reporting.colors import backend_color
+
 _CAPABILITY_CATEGORIES = ["agree", "declared-only", "disagree"]
 _CAPABILITY_COLORS = ["#4caf50", "#ff9800", "#f44336"]
 
@@ -15,6 +17,20 @@ def _group_label(name):
     if isinstance(name, tuple):
         return "/".join(str(value) for value in name)
     return str(name)
+
+
+def _backend_from_group(group, name):
+    """The backend name for a groupby key, when "backend" is part of
+    group - a bare column name or the matching position in a tuple key
+    for a multi-column group - or None otherwise, so callers can apply
+    the fixed backend colour only where backend identity is actually
+    part of what's being plotted.
+    """
+    if group == "backend":
+        return name
+    if isinstance(group, list) and "backend" in group:
+        return name[group.index("backend")]
+    return None
 
 
 def plot_metric_vs_sweep(df, x, y, group=None, logx=False, logy=False, status_col=None):
@@ -31,7 +47,9 @@ def plot_metric_vs_sweep(df, x, y, group=None, logx=False, logy=False, status_co
     else:
         for name, subset in df.groupby(group):
             subset = subset.sort_values(x)
-            (line,) = ax.plot(subset[x], subset[y], marker="o", label=_group_label(name))
+            backend_name = _backend_from_group(group, name)
+            color = backend_color(backend_name) if backend_name is not None else None
+            (line,) = ax.plot(subset[x], subset[y], marker="o", label=_group_label(name), color=color)
             if status_col is not None:
                 stalled = subset[subset[status_col] != "CONVERGED"]
                 if len(stalled):
@@ -74,7 +92,9 @@ def plot_metric_by_category(df, category, y, group, logy=False, status_col=None)
     for i, group_name in enumerate(groups):
         subset = df[df["_group"] == group_name].set_index(category)
         values = subset[y].reindex(categories)
-        bars = ax.bar(x + i * width - 0.4 + width / 2, values, width, label=group_name)
+        backend_name = _backend_from_group(group, group_name.split("/") if isinstance(group, list) else group_name)
+        color = backend_color(backend_name) if backend_name is not None else None
+        bars = ax.bar(x + i * width - 0.4 + width / 2, values, width, label=group_name, color=color)
         if status_col is not None:
             statuses = subset[status_col].reindex(categories)
             for bar, status in zip(bars, statuses):
@@ -138,7 +158,7 @@ def plot_capability_frontier(panels):
     for ax, (name, (df, x, y)) in zip(axes, panels.items()):
         for backend_name, subset in df.groupby("backend"):
             subset = subset.sort_values(x)
-            ax.plot(subset[x], subset[y], marker="o", label=backend_name)
+            ax.plot(subset[x], subset[y], marker="o", label=backend_name, color=backend_color(backend_name))
         ax.set_xscale("log")
         ax.set_yscale("log")
         ax.set_title(name, fontsize=10)
