@@ -409,8 +409,18 @@ a reporting-layer fix) - out of scope here, and not attempted.
 
 ## Timing measurement: `RunResult.timing`
 
-Both backends follow the same policy (Section 7 of the design doc):
-one discarded warm-up solve, then five measured repetitions, reporting
+Opt-in via `RunConfig.measure_timing` (default `False`): a plain
+`solve()` call costs exactly one solve, `timing=None`, unchanged from
+before this measurement existed. Making the repeated measurement
+unconditional regressed the full test suite badly - every correctness
+check that calls `solve()`, not just report generation, paid the full
+repetition cost, compounding worst against the already-slowest tests
+(confirmed directly: `dimensionality(n=1000)`/`trust-exact` went from
+~4s to ~23s). Only a caller that actually wants real `TimingStats`
+(report generation) sets `measure_timing=True`.
+
+When it is set, both backends follow the same policy (Section 7 of the
+design doc): one discarded warm-up solve, then five measured repetitions, reporting
 median and MAD (1.4826-scaled, matching `robust_loss.py`'s own
 `irls_tukey` convention) rather than mean/stddev.
 

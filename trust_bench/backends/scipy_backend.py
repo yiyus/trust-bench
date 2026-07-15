@@ -184,21 +184,26 @@ class SciPyBackend(Backend):
                 return self._solve_least_squares(problem, method, start, config)
             return self._solve_minimize(problem, method, start, config)
 
-        # Warm-up run(s) discarded, then N_REPS measured repetitions -
-        # docs/plans/trust-bench.md Section 7's timing policy. Thread
-        # count is pinned for the whole measurement, not just recorded,
-        # so the number is reproducible rather than whatever the
-        # environment's default happens to be.
-        with threadpool_limits(limits=_THREAD_COUNT):
-            for _ in range(WARMUP):
-                _run_once()
-            samples = []
-            for _ in range(N_REPS):
-                t0 = time.perf_counter()
-                result, status, grad_final = _run_once()
-                samples.append(time.perf_counter() - t0)
-
-        timing = summarize(samples, warmup=WARMUP, n_reps=N_REPS, thread_count=_THREAD_COUNT)
+        if not config.measure_timing:
+            # The common case: a single solve, no repeated measurement -
+            # unchanged cost from before RunResult.timing existed.
+            result, status, grad_final = _run_once()
+            timing = None
+        else:
+            # Warm-up run(s) discarded, then N_REPS measured repetitions -
+            # docs/plans/trust-bench.md Section 7's timing policy. Thread
+            # count is pinned for the whole measurement, not just
+            # recorded, so the number is reproducible rather than
+            # whatever the environment's default happens to be.
+            with threadpool_limits(limits=_THREAD_COUNT):
+                for _ in range(WARMUP):
+                    _run_once()
+                samples = []
+                for _ in range(N_REPS):
+                    t0 = time.perf_counter()
+                    result, status, grad_final = _run_once()
+                    samples.append(time.perf_counter() - t0)
+            timing = summarize(samples, warmup=WARMUP, n_reps=N_REPS, thread_count=_THREAD_COUNT)
 
         x_final = np.asarray(result.x, dtype=float)
         optimum = problem.optima[0]

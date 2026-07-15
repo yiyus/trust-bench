@@ -356,30 +356,43 @@ class APLBackend(Backend):
         if config.x_scale is not None:
             request["pscale"] = np.asarray(config.x_scale, dtype=float).tolist()
 
-        # Warm-up run(s) discarded, then N_REPS measured repetitions -
-        # docs/plans/trust-bench.md Section 7's timing policy. Each
-        # repetition is just an ordinary _send_request round trip
-        # through the already-persistent session (a few ms), not a
-        # fresh subprocess spawn, so no special batching is needed here.
-        # The persistent session only removes interpreter-startup cost
-        # from each repetition; a round trip still pays JSON encoding/
-        # decoding and IPC transfer, which is why solve_ms is measured
-        # inside solve.dyalog itself (⎕AI around the Min call) rather
-        # than by wall-clocking this round trip. A response with an
-        # error stops the loop immediately rather than padding out the
-        # remaining repetitions.
-        samples = []
-        for i in range(WARMUP + N_REPS):
+        if not config.measure_timing:
+            # The common case: a single round trip, no repeated
+            # measurement - unchanged cost from before RunResult.timing
+            # existed. Multiplying every solve() call by WARMUP+N_REPS
+            # regardless of problem cost is what real report generation
+            # wants, not what an ordinary correctness check needs -
+            # confirmed directly to matter: a single already-slow test
+            # (dimensionality(n=1000)/trust-exact) went from ~4s to
+            # ~23s when this was unconditional.
             response = _send_request(request)
-            if response["status"] == "ERROR":
-                break
-            if i >= WARMUP:
-                samples.append(response["solve_ms"] / 1000.0)
-        timing = (
-            summarize(samples, warmup=WARMUP, n_reps=N_REPS, thread_count=_THREAD_COUNT)
-            if len(samples) == N_REPS
-            else None
-        )
+            timing = None
+        else:
+            # Warm-up run(s) discarded, then N_REPS measured repetitions -
+            # docs/plans/trust-bench.md Section 7's timing policy. Each
+            # repetition is just an ordinary _send_request round trip
+            # through the already-persistent session (a few ms), not a
+            # fresh subprocess spawn, so no special batching is needed
+            # here. The persistent session only removes interpreter-
+            # startup cost from each repetition; a round trip still pays
+            # JSON encoding/decoding and IPC transfer, which is why
+            # solve_ms is measured inside solve.dyalog itself (⎕AI
+            # around the Min call) rather than by wall-clocking this
+            # round trip. A response with an error stops the loop
+            # immediately rather than padding out the remaining
+            # repetitions.
+            samples = []
+            for i in range(WARMUP + N_REPS):
+                response = _send_request(request)
+                if response["status"] == "ERROR":
+                    break
+                if i >= WARMUP:
+                    samples.append(response["solve_ms"] / 1000.0)
+            timing = (
+                summarize(samples, warmup=WARMUP, n_reps=N_REPS, thread_count=_THREAD_COUNT)
+                if len(samples) == N_REPS
+                else None
+            )
 
         x_final = response["x_final"]
         dist_to_opt = cost_gap = None
