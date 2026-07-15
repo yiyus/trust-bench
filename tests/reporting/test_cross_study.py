@@ -5,9 +5,25 @@ import pytest
 
 from trust_bench.backends.apl_backend import APLBackend
 from trust_bench.backends.scipy_backend import SciPyBackend
+from trust_bench.reporting import cross_study
 from trust_bench.reporting.cross_study import _pivot_by_backend, frontier_panels, parity_frame
 
 SCIPY = SciPyBackend()
+
+
+@pytest.fixture
+def small_dimensionality_panel(monkeypatch):
+    # frontier_panels' own dimensionality panel solves BFGS (a dense
+    # method) at n=1000 by default - the single largest cost in the
+    # test suite (~110s per call). A test proving structural/display
+    # behaviour doesn't need that scale: n=10 already gives a genuine
+    # BFGS solve to build a real panel from, just fast.
+    original_sweep = cross_study.dimensionality.sweep
+    monkeypatch.setattr(
+        cross_study.dimensionality,
+        "sweep",
+        lambda methods, backends: original_sweep(n_values=[10], methods=methods, backends=backends),
+    )
 
 
 @pytest.fixture
@@ -66,8 +82,7 @@ def test_parity_frame_pools_baseline_typical_and_bounded():
     assert len(df) > 0
 
 
-@pytest.mark.slow
-def test_frontier_panels_covers_every_difficulty_sweep():
+def test_frontier_panels_covers_every_difficulty_sweep(small_dimensionality_panel):
     panels = frontier_panels(backends=[SCIPY])
 
     assert set(panels) == {"ill_conditioning", "scaling", "dimensionality", "large_residual", "robust_loss"}
@@ -76,8 +91,7 @@ def test_frontier_panels_covers_every_difficulty_sweep():
         assert {x, y, "backend"} <= set(df.columns)
 
 
-@pytest.mark.slow
-def test_frontier_panels_floors_an_exact_zero_metric_for_log_display():
+def test_frontier_panels_floors_an_exact_zero_metric_for_log_display(small_dimensionality_panel):
     panels = frontier_panels(backends=[SCIPY])
 
     scaling_df, _, y = panels["scaling"]

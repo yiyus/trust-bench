@@ -1,0 +1,15 @@
+problem_id,backend,status,message,cost_final,dist_to_opt,cost_gap,grad_norm_final,n_iter,n_feval,n_jeval,n_heval
+rosenbrock,trust-apl,CONVERGED,,7.898336318226344e-16,8.16913647156473e-08,7.898336318226344e-16,3.522291371323697e-07,50,52,52,0
+rosenbrock,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,21,21,16,0
+beale,trust-apl,CONVERGED,,3.71253287806805e-24,7.006717755193154e-12,3.71253287806805e-24,1.327283234265068e-12,8,9,9,0
+beale,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,9,9,7,0
+powell,trust-apl,CONVERGED,,1.224319556211719e-15,0.00017609547100426958,1.224319556211719e-15,5.388328258798595e-11,14,16,16,0
+powell,scipy,CONVERGED,`gtol` termination condition is satisfied.,3.609744844100735e-42,3.5691885110422974e-11,3.609744844100735e-42,6.9739728988419385e-31,37,37,37,0
+helical,trust-apl,CONVERGED,,1.351207981668846e-20,1.9418168491455445e-10,1.351207981668846e-20,1.515657801781708e-10,11,13,13,0
+helical,scipy,CONVERGED,`xtol` termination condition is satisfied.,4.936723261103545e-33,6.24330076960883e-18,4.936723261103545e-33,1.8677039039604415e-15,11,11,8,0
+expdec,trust-apl,CONVERGED,,8.65198540851802e-19,3.326816869042913e-10,8.65198540851802e-19,5.380682784230726e-09,7,9,9,0
+expdec,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,9,9,7,0
+quadratic,trust-apl,CONVERGED,,2.445356889868398e-18,1.398672767982103e-09,2.445356889868398e-18,4.077796813366883e-09,3,5,5,0
+quadratic,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,2,2,2,0
+linear,trust-apl,CONVERGED,,1.589515669541713e-17,5.568820673270251e-09,1.589515669541713e-17,5.841743137288288e-09,3,5,5,0
+linear,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,3,3,2,0

@@ -1,0 +1,15 @@
+problem_id,backend,basin_rate
+rosenbrock,trust-apl,1.0
+rosenbrock,scipy,1.0
+beale,trust-apl,1.0
+beale,scipy,1.0
+powell,trust-apl,0.0
+powell,scipy,1.0
+helical,trust-apl,1.0
+helical,scipy,1.0
+expdec,trust-apl,1.0
+expdec,scipy,1.0
+quadratic,trust-apl,1.0
+quadratic,scipy,1.0
+linear,trust-apl,1.0
+linear,scipy,1.0
