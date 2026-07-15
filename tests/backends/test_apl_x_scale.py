@@ -84,3 +84,18 @@ def test_grad_norm_final_is_reported_in_physical_not_pscale_space(method):
     # deterministic gap without masking a real coordinate-space error,
     # which would be many orders of magnitude off, not a few percent.
     assert result.grad_norm_final == pytest.approx(true_grad_norm, rel=0.05)
+
+
+def test_unscaled_lm_reports_converged_not_stalled_at_scale_1e6():
+    # Result.StalledByPrecision's gtol=1e-2 heuristic cutoff was being
+    # checked ahead of Result.Converged in the vendored predicate chain:
+    # a genuinely converged run (cost far below tolc) whose gradient
+    # norm happens to sit just over gtol was misreported STALLED. Fixed
+    # upstream by baking ~Converged into the FAILED-labelled predicates
+    # themselves rather than relying on caller-side ordering.
+    problem = scaling.make(1e6)
+
+    result = BACKEND.solve(problem, "lm", START, RunConfig(max_iter=200))
+
+    assert result.status is RunStatus.CONVERGED, result.status
+    assert result.cost_final < 1e-10
