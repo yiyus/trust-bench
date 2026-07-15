@@ -74,6 +74,82 @@ class _AlwaysErrorsBackend(Backend):
             timestamp="2026-01-01T00:00:00Z",
         )
 
+class _LmOnlyBackend(Backend):
+    """Genuinely solves lm-based studies (baseline) but always reports
+    ERROR for BFGS/L-BFGS-B (scalar_cost's own methods) - models
+    trust-apl's real, permanent scalar_cost gap (#136) without depending
+    on dyalogscript being installed.
+    """
+
+    name = "lm-only"
+
+    def capabilities(self):
+        return Capabilities(
+            methods={
+                "lm": MethodCapabilities(
+                    kind="residuals",
+                    losses=frozenset({"linear"}),
+                    bounds=False,
+                    analytic_hessian=False,
+                    derivative_modes=frozenset({"analytic"}),
+                ),
+                "BFGS": MethodCapabilities(
+                    kind="scalar",
+                    losses=frozenset(),
+                    bounds=False,
+                    analytic_hessian=False,
+                    derivative_modes=frozenset({"analytic"}),
+                ),
+                "L-BFGS-B": MethodCapabilities(
+                    kind="scalar",
+                    losses=frozenset(),
+                    bounds=True,
+                    analytic_hessian=False,
+                    derivative_modes=frozenset({"analytic"}),
+                ),
+            }
+        )
+
+    def environment(self):
+        return capture()
+
+    def solve(self, problem, method, start, config):
+        if method == "lm":
+            optimum = problem.optima[0]
+            status = RunStatus.CONVERGED
+            x_final = optimum.x_star.tolist()
+            cost_final = optimum.cost_star
+            dist_to_opt = cost_gap = grad_norm_final = 0.0
+            n_iter = n_feval = n_jeval = 1
+            n_heval = 0
+        else:
+            status = RunStatus.ERROR
+            x_final = cost_final = dist_to_opt = cost_gap = grad_norm_final = None
+            n_iter = n_feval = n_jeval = n_heval = None
+        return RunResult(
+            problem_id=problem.id,
+            backend=self.name,
+            method=method,
+            start=start,
+            x_final=x_final,
+            cost_final=cost_final,
+            dist_to_opt=dist_to_opt,
+            cost_gap=cost_gap,
+            grad_norm_final=grad_norm_final,
+            status=status,
+            n_iter=n_iter,
+            n_feval=n_feval,
+            n_jeval=n_jeval,
+            n_heval=n_heval,
+            trace=None,
+            timing=None,
+            config=config,
+            provenance=self.environment(),
+            harness_git_sha=harness_git_sha(),
+            timestamp="2026-01-01T00:00:00Z",
+        )
+
+
 _EXPECTED_TABLES = [
     "baseline.csv",
     "baseline_basin_rates.csv",
@@ -297,6 +373,53 @@ def test_run_report_raises_clearly_when_a_study_does_not_support_the_selected_ba
 
     with pytest.raises(ValueError, match=stub.name):
         run_report(tmp_path, only=["baseline"], backends=[stub.name])
+
+
+def test_run_report_skips_a_study_with_a_known_backend_coverage_gap_instead_of_crashing(tmp_path, monkeypatch):
+    # trust-apl has no evaluator for scalar_cost's Jacobian-free scalar
+    # objectives at all: a known, permanent gap, not a bug - the report
+    # must still produce every other artefact instead of aborting
+    # entirely (the exact crash `trust-bench report --backends trust-apl
+    # scipy` hits today).
+    stub = _LmOnlyBackend()
+    monkeypatch.setitem(AVAILABLE_BACKENDS, stub.name, stub)
+
+    output_dir, skipped = run_report(tmp_path, only=["baseline", "scalar_cost"], backends=[stub.name])
+
+    assert (output_dir / "baseline.csv").exists()
+    assert not (output_dir / "scalar_cost.csv").exists()
+    assert "scalar_cost" in skipped
+    assert stub.name in skipped["scalar_cost"]
+
+
+def test_main_prints_a_note_for_each_skipped_study(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(
+        "trust_bench.cli.run_report",
+        lambda *args, **kwargs: (tmp_path, {"scalar_cost": "scalar_cost: no results for backend(s) trust-apl"}),
+    )
+
+    main(["report", "--output-dir", str(tmp_path)])
+
+    captured = capsys.readouterr()
+    # A properly unpacked, human-readable note - not main() naively
+    # printing the raw (output_dir, skipped) tuple it now receives.
+    assert "Skipped scalar_cost: scalar_cost: no results for backend(s) trust-apl" in captured.err
+    assert "PosixPath" not in captured.out
+    assert f"Report artefacts written to {tmp_path}" in captured.out
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(shutil.which("dyalogscript") is None, reason="Dyalog APL is not installed")
+def test_run_report_with_trust_apl_and_scipy_does_not_crash_on_scalar_costs_known_gap(tmp_path):
+    # The direct reading of the reported bug: this exact invocation
+    # currently raises and aborts before writing anything.
+    output_dir, skipped = run_report(
+        tmp_path, backends=["trust-apl", "scipy"], skip_slow=True, skip=["parity_scatter"]
+    )
+
+    assert "scalar_cost" in skipped
+    assert (output_dir / "baseline.csv").exists()
+    assert (output_dir / "typical.csv").exists()
 
 
 def test_report_command_html_flag_defaults_to_false():
