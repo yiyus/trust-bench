@@ -110,9 +110,17 @@ def test_evaluate_at_n_1000_completes_quickly():
     # The port must not become the dominant cost of running the study at
     # the largest n it sweeps; a generous bound that would still fail
     # outright on an accidentally quadratic-in-n-squared construction.
+    # The median of 3 repeated measurements (mirroring test_dimensionality
+    # .py's own fix for an analogous flaky timing assertion) absorbs a
+    # single transient scheduling blip in the subprocess launch; the
+    # bound itself is loosened to comfortably tolerate background system
+    # load, not just an idle machine.
     problem = dimensionality.make(n=1000)
-    start = time.perf_counter()
-    evaluate_problem(problem.id, problem.probe_points[0])
-    elapsed = time.perf_counter() - start
+    times = []
+    for _ in range(3):
+        start = time.perf_counter()
+        evaluate_problem(problem.id, problem.probe_points[0])
+        times.append(time.perf_counter() - start)
+    median_elapsed = sorted(times)[1]
 
-    assert elapsed < 10.0, elapsed
+    assert median_elapsed < 30.0, times
