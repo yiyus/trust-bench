@@ -1,0 +1,79 @@
+scale,method,x_scale,backend,status,message,cost_final,dist_to_opt,cost_gap,grad_norm_final,n_iter,n_feval,n_jeval,n_heval
+1.0,lm,,trust-apl,CONVERGED,,6.357927395498188e-18,3.565929723227363e-09,6.357927395498188e-18,3.565929723227363e-09,3.0,5.0,5.0,0.0
+1.0,lm,jac,trust-apl,UNSUPPORTED,lm does not support x_scale='jac',,,,,,,,
+1.0,lm,fixed,trust-apl,CONVERGED,,6.357927395498188e-18,3.565929723227363e-09,6.357927395498188e-18,3.565929723227363e-09,3.0,5.0,5.0,0.0
+1.0,BFGS,fixed,trust-apl,CONVERGED,,6.357927395498188e-18,3.565929723227363e-09,6.357927395498188e-18,3.565929723227363e-09,3.0,5.0,5.0,0.0
+1.0,lm,,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,2.0,2.0,2.0,0.0
+1.0,lm,jac,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,2.0,2.0,2.0,0.0
+1.0,lm,fixed,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,2.0,2.0,2.0,0.0
+1.0,trf,,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,4.0,4.0,4.0,0.0
+1.0,trf,jac,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,4.0,4.0,4.0,0.0
+1.0,trf,fixed,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,4.0,4.0,4.0,0.0
+1.0,dogbox,,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,3.0,3.0,3.0,0.0
+1.0,dogbox,jac,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,3.0,3.0,3.0,0.0
+1.0,dogbox,fixed,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,3.0,3.0,3.0,0.0
+10.0,lm,,trust-apl,CONVERGED,,2.000301873233739e-16,3.565929723227363e-09,2.000301873233739e-16,1.978244483379693e-07,3.0,5.0,5.0,0.0
+10.0,lm,jac,trust-apl,UNSUPPORTED,lm does not support x_scale='jac',,,,,,,,
+10.0,lm,fixed,trust-apl,CONVERGED,,2.000301873233739e-16,3.565929723227363e-09,2.000301873233739e-16,1.978244483379693e-07,3.0,5.0,5.0,0.0
+10.0,BFGS,fixed,trust-apl,CONVERGED,,2.000301873233739e-16,3.565929723227363e-09,2.000301873233739e-16,1.978244483379693e-07,3.0,5.0,5.0,0.0
+10.0,lm,,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,2.0,2.0,2.0,0.0
+10.0,lm,jac,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,2.0,2.0,2.0,0.0
+10.0,lm,fixed,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,2.0,2.0,2.0,0.0
+10.0,trf,,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,4.0,4.0,4.0,0.0
+10.0,trf,jac,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,6.0,6.0,6.0,0.0
+10.0,trf,fixed,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,6.0,6.0,6.0,0.0
+10.0,dogbox,,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,4.0,4.0,4.0,0.0
+10.0,dogbox,jac,scipy,CONVERGED,`gtol` termination condition is satisfied.,9.860761315262648e-32,4.440892098500626e-16,9.860761315262648e-32,4.440892098500626e-16,6.0,6.0,6.0,0.0
+10.0,dogbox,fixed,scipy,CONVERGED,`gtol` termination condition is satisfied.,9.860761315262648e-32,4.440892098500626e-16,9.860761315262648e-32,4.440892098500626e-16,6.0,6.0,6.0,0.0
+100.0,lm,,trust-apl,CONVERGED,,1.953119909030328e-24,3.621165613036259e-14,1.953119909030328e-24,1.97619700623184e-10,4.0,6.0,6.0,0.0
+100.0,lm,jac,trust-apl,UNSUPPORTED,lm does not support x_scale='jac',,,,,,,,
+100.0,lm,fixed,trust-apl,CONVERGED,,1.953119909030328e-24,3.621165613036259e-14,1.953119909030328e-24,1.97619700623184e-10,4.0,6.0,6.0,0.0
+100.0,BFGS,fixed,trust-apl,CONVERGED,,1.953119909030328e-24,3.621165613036259e-14,1.953119909030328e-24,1.97619700623184e-10,4.0,6.0,6.0,0.0
+100.0,lm,,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,4.0,4.0,3.0,0.0
+100.0,lm,jac,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,4.0,4.0,3.0,0.0
+100.0,lm,fixed,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,4.0,4.0,3.0,0.0
+100.0,trf,,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,4.0,4.0,4.0,0.0
+100.0,trf,jac,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,9.0,9.0,9.0,0.0
+100.0,trf,fixed,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,9.0,9.0,9.0,0.0
+100.0,dogbox,,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,4.0,4.0,4.0,0.0
+100.0,dogbox,jac,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,9.0,9.0,9.0,0.0
+100.0,dogbox,fixed,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,9.0,9.0,9.0,0.0
+10000.0,lm,,trust-apl,CONVERGED,,1.952677303719843e-20,3.621165613036259e-14,1.952677303719843e-20,1.976196983832779e-06,4.0,6.0,6.0,0.0
+10000.0,lm,jac,trust-apl,UNSUPPORTED,lm does not support x_scale='jac',,,,,,,,
+10000.0,lm,fixed,trust-apl,CONVERGED,,1.909043434899806e-20,3.621165613036259e-14,1.909043434899806e-20,1.953992523340276e-06,4.0,6.0,6.0,0.0
+10000.0,BFGS,fixed,trust-apl,CONVERGED,,1.909043434899806e-20,3.621165613036259e-14,1.909043434899806e-20,1.953992523340276e-06,4.0,6.0,6.0,0.0
+10000.0,lm,,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,10.0,10.0,9.0,0.0
+10000.0,lm,jac,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,10.0,10.0,9.0,0.0
+10000.0,lm,fixed,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,10.0,10.0,9.0,0.0
+10000.0,trf,,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,4.0,4.0,4.0,0.0
+10000.0,trf,jac,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,16.0,16.0,16.0,0.0
+10000.0,trf,fixed,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,16.0,16.0,16.0,0.0
+10000.0,dogbox,,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,4.0,4.0,4.0,0.0
+10000.0,dogbox,jac,scipy,CONVERGED,`gtol` termination condition is satisfied.,9.860761315262648e-32,4.440892098500626e-16,9.860761315262648e-32,4.440892098500626e-16,16.0,16.0,16.0,0.0
+10000.0,dogbox,fixed,scipy,CONVERGED,`gtol` termination condition is satisfied.,9.860761315262648e-32,4.440892098500626e-16,9.860761315262648e-32,4.440892098500626e-16,16.0,16.0,16.0,0.0
+1000000.0,lm,,trust-apl,CONVERGED,,1.952677259459312e-16,3.621165613036259e-14,1.952677259459312e-16,0.01976196983832779,4.0,6.0,6.0,0.0
+1000000.0,lm,jac,trust-apl,UNSUPPORTED,lm does not support x_scale='jac',,,,,,,,
+1000000.0,lm,fixed,trust-apl,CONVERGED,,1.909043390639275e-16,3.621165613036259e-14,1.909043390639275e-16,0.01953992523340276,4.0,6.0,6.0,0.0
+1000000.0,BFGS,fixed,trust-apl,CONVERGED,,1.909043390639275e-16,3.621165613036259e-14,1.909043390639275e-16,0.01953992523340276,4.0,6.0,6.0,0.0
+1000000.0,lm,,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,17.0,17.0,16.0,0.0
+1000000.0,lm,jac,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,17.0,17.0,16.0,0.0
+1000000.0,lm,fixed,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,17.0,17.0,16.0,0.0
+1000000.0,trf,,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,4.0,4.0,4.0,0.0
+1000000.0,trf,jac,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,22.0,22.0,22.0,0.0
+1000000.0,trf,fixed,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,22.0,22.0,22.0,0.0
+1000000.0,dogbox,,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,4.0,4.0,4.0,0.0
+1000000.0,dogbox,jac,scipy,CONVERGED,`gtol` termination condition is satisfied.,9.860761315262648e-32,4.440892098500626e-16,9.860761315262648e-32,4.440892098500626e-16,22.0,22.0,22.0,0.0
+1000000.0,dogbox,fixed,scipy,CONVERGED,`gtol` termination condition is satisfied.,9.860761315262648e-32,4.440892098500626e-16,9.860761315262648e-32,4.440892098500626e-16,22.0,22.0,22.0,0.0
+100000000.0,lm,,trust-apl,FAILED,,2e+16,3.605551275463989,2e+16,2e+16,9.0,2.0,2.0,0.0
+100000000.0,lm,jac,trust-apl,UNSUPPORTED,lm does not support x_scale='jac',,,,,,,,
+100000000.0,lm,fixed,trust-apl,CONVERGED,,1.909043390634849e-12,3.621165613036259e-14,1.909043390634849e-12,195.3992523340276,4.0,6.0,6.0,0.0
+100000000.0,BFGS,fixed,trust-apl,CONVERGED,,1.909043390634849e-12,3.621165613036259e-14,1.909043390634849e-12,195.3992523340276,4.0,6.0,6.0,0.0
+100000000.0,lm,,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,24.0,24.0,23.0,0.0
+100000000.0,lm,jac,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,24.0,24.0,23.0,0.0
+100000000.0,lm,fixed,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,24.0,24.0,23.0,0.0
+100000000.0,trf,,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,4.0,4.0,4.0,0.0
+100000000.0,trf,jac,scipy,CONVERGED,`ftol` termination condition is satisfied.,1.9999999800000004e+16,3.605551257436233,1.9999999800000004e+16,1.99999999e+16,2.0,2.0,2.0,0.0
+100000000.0,trf,fixed,scipy,CONVERGED,`ftol` termination condition is satisfied.,1.9999999800000004e+16,3.605551257436233,1.9999999800000004e+16,1.99999999e+16,2.0,2.0,2.0,0.0
+100000000.0,dogbox,,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,4.0,4.0,4.0,0.0
+100000000.0,dogbox,jac,scipy,CONVERGED,`ftol` termination condition is satisfied.,1.9999999800000004e+16,3.605551269916987,1.9999999800000004e+16,1.99999999e+16,2.0,2.0,2.0,0.0
+100000000.0,dogbox,fixed,scipy,CONVERGED,`ftol` termination condition is satisfied.,1.9999999800000004e+16,3.605551269916987,1.9999999800000004e+16,1.99999999e+16,2.0,2.0,2.0,0.0

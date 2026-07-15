@@ -3,6 +3,7 @@ import pandas as pd
 import pytest
 
 from trust_bench.reporting.capability_matrix import derive_matrix
+from trust_bench.reporting.colors import backend_color
 from trust_bench.reporting.plots import (
     plot_capability_frontier,
     plot_capability_matrix,
@@ -54,6 +55,30 @@ def parity_df():
             dict(x=1e-8, y=1e-7, converged=True, study="baseline"),
             dict(x=1e-6, y=1.0, converged=False, study="typical"),
             dict(x=1e-6, y=1e-6, converged=True, study="typical"),
+        ]
+    )
+
+
+@pytest.fixture
+def backend_group_df():
+    return pd.DataFrame(
+        [
+            dict(x=1, y=10, backend="scipy", status="CONVERGED"),
+            dict(x=2, y=20, backend="scipy", status="CONVERGED"),
+            dict(x=1, y=15, backend="trust-apl", status="CONVERGED"),
+            dict(x=2, y=25, backend="trust-apl", status="CONVERGED"),
+        ]
+    )
+
+
+@pytest.fixture
+def backend_category_df():
+    return pd.DataFrame(
+        [
+            dict(problem_id="p1", y=1.0, backend="scipy", status="CONVERGED"),
+            dict(problem_id="p1", y=2.0, backend="trust-apl", status="CONVERGED"),
+            dict(problem_id="p2", y=3.0, backend="scipy", status="CONVERGED"),
+            dict(problem_id="p2", y=4.0, backend="trust-apl", status="CONVERGED"),
         ]
     )
 
@@ -217,6 +242,41 @@ def test_plot_capability_frontier_draws_one_line_per_backend_per_panel(frontier_
 
     assert len(fig.axes[0].lines) == 2
     assert len(fig.axes[1].lines) == 1
+
+
+def test_plot_metric_vs_sweep_uses_the_fixed_backend_colour_for_each_line(backend_group_df):
+    fig = plot_metric_vs_sweep(backend_group_df, x="x", y="y", group="backend")
+
+    colors_by_label = {line.get_label(): line.get_color() for line in fig.axes[0].lines}
+    assert colors_by_label["scipy"] == backend_color("scipy")
+    assert colors_by_label["trust-apl"] == backend_color("trust-apl")
+
+
+def test_plot_metric_by_category_uses_the_fixed_backend_colour_for_each_bar(backend_category_df):
+    from matplotlib.colors import to_rgba
+
+    fig = plot_metric_by_category(backend_category_df, category="problem_id", y="y", group="backend")
+
+    colors_by_label = {
+        container.get_label(): container.patches[0].get_facecolor() for container in fig.axes[0].containers
+    }
+    assert colors_by_label["scipy"] == to_rgba(backend_color("scipy"))
+    assert colors_by_label["trust-apl"] == to_rgba(backend_color("trust-apl"))
+
+
+def test_plot_capability_frontier_uses_the_fixed_backend_colour_consistently_across_panels(
+    frontier_panels_fixture,
+):
+    fig = plot_capability_frontier(frontier_panels_fixture)
+
+    two_backend_colors = {line.get_label(): line.get_color() for line in fig.axes[0].lines}
+    one_backend_colors = {line.get_label(): line.get_color() for line in fig.axes[1].lines}
+    assert two_backend_colors["scipy"] == backend_color("scipy")
+    assert two_backend_colors["trust-apl"] == backend_color("trust-apl")
+    # Same backend, different panel: still the same fixed colour, not
+    # whatever matplotlib's own cycle happens to assign given a
+    # different set/order of groups being plotted in that panel.
+    assert one_backend_colors["scipy"] == two_backend_colors["scipy"]
 
 
 def test_save_figure_writes_a_non_empty_image_file(df, tmp_path):

@@ -1,0 +1,57 @@
+problem_id,method,mode,backend,status,message,cost_final,dist_to_opt,cost_gap,grad_norm_final,n_iter,n_feval,n_jeval,n_heval
+rosenbrock,lm,analytic,trust-apl,CONVERGED,,7.898336318226344e-16,8.16913647156473e-08,7.898336318226344e-16,3.522291371323697e-07,50,52,52.0,0
+rosenbrock,lm,finite-difference,trust-apl,CONVERGED,,7.891384440657411e-16,8.168750951101663e-08,7.891384440657411e-16,3.513285976070399e-07,50,156,156.0,0
+rosenbrock,lm,analytic,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,21,21,16.0,0
+rosenbrock,lm,finite-difference,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,53,53,,0
+rosenbrock,trf,analytic,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,25,25,18.0,0
+rosenbrock,trf,finite-difference,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,61,61,18.0,0
+rosenbrock,dogbox,analytic,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,19,19,15.0,0
+rosenbrock,dogbox,finite-difference,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,49,49,15.0,0
+beale,lm,analytic,trust-apl,CONVERGED,,3.71253287806805e-24,7.006717755193154e-12,3.71253287806805e-24,1.327283234265068e-12,8,9,9.0,0
+beale,lm,finite-difference,trust-apl,CONVERGED,,3.658190000592508e-24,6.951122242694159e-12,3.658190000592508e-24,1.393207429246507e-12,8,27,27.0,0
+beale,lm,analytic,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,9,9,7.0,0
+beale,lm,finite-difference,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,25,25,,0
+beale,trf,analytic,scipy,CONVERGED,`gtol` termination condition is satisfied.,2.24932859715106e-23,1.9764163537538374e-12,2.24932859715106e-23,3.307682819320928e-11,7,7,7.0,0
+beale,trf,finite-difference,scipy,CONVERGED,`gtol` termination condition is satisfied.,2.2548027803063007e-23,2.058749208344612e-12,2.2548027803063007e-23,3.30990612279555e-11,21,21,7.0,0
+beale,dogbox,analytic,scipy,CONVERGED,`gtol` termination condition is satisfied.,5.0756827296343665e-23,3.4258183245069627e-12,5.0756827296343665e-23,4.957856854064874e-11,8,8,8.0,0
+beale,dogbox,finite-difference,scipy,CONVERGED,`gtol` termination condition is satisfied.,5.0461854947549227e-23,3.3205503054206892e-12,5.0461854947549227e-23,4.945826099111495e-11,24,24,8.0,0
+powell,lm,analytic,trust-apl,CONVERGED,,1.224319556211719e-15,0.00017609547100426958,1.224319556211719e-15,5.388328258798595e-11,14,16,16.0,0
+powell,lm,finite-difference,trust-apl,CONVERGED,,1.227638444419591e-15,0.00017621956585473037,1.227638444419591e-15,5.399261653097536e-11,14,80,80.0,0
+powell,lm,analytic,scipy,CONVERGED,`gtol` termination condition is satisfied.,3.609744844100735e-42,3.5691885110422974e-11,3.609744844100735e-42,6.9739728988419385e-31,37,37,37.0,0
+powell,lm,finite-difference,scipy,CONVERGED,`xtol` termination condition is satisfied.,4.865450985422209e-35,2.587595570746657e-09,4.865450985422209e-35,4.307192591683558e-24,335,335,,0
+powell,trf,analytic,scipy,CONVERGED,`gtol` termination condition is satisfied.,2.8599345114343735e-13,0.0005988104659447884,2.8599345114343735e-13,3.293365588145337e-09,13,13,13.0,0
+powell,trf,finite-difference,scipy,CONVERGED,`gtol` termination condition is satisfied.,2.8601779782079684e-13,0.0005988279911864809,2.8601779782079684e-13,3.2935740511011485e-09,65,65,13.0,0
+powell,dogbox,analytic,scipy,CONVERGED,`gtol` termination condition is satisfied.,2.8599345114343654e-13,0.0005988104659447588,2.8599345114343654e-13,3.2933655878638943e-09,13,13,13.0,0
+powell,dogbox,finite-difference,scipy,CONVERGED,`gtol` termination condition is satisfied.,2.860177958787641e-13,0.0005988279904200313,2.860177958787641e-13,3.293574034845322e-09,65,65,13.0,0
+helical,lm,analytic,trust-apl,CONVERGED,,1.351207981668846e-20,1.9418168491455445e-10,1.351207981668846e-20,1.515657801781708e-10,11,13,13.0,0
+helical,lm,finite-difference,trust-apl,CONVERGED,,1.351265998384776e-20,1.9418153503718284e-10,1.351265998384776e-20,1.520246025304308e-10,11,52,52.0,0
+helical,lm,analytic,scipy,CONVERGED,`xtol` termination condition is satisfied.,4.936723261103545e-33,6.24330076960883e-18,4.936723261103545e-33,1.8677039039604415e-15,11,11,8.0,0
+helical,lm,finite-difference,scipy,CONVERGED,`xtol` termination condition is satisfied.,4.941168673622872e-33,6.246111115739979e-18,4.941168673622872e-33,1.8685446282238274e-15,38,38,,0
+helical,trf,analytic,scipy,CONVERGED,`gtol` termination condition is satisfied.,5.956931806538972e-29,7.072339969314804e-16,5.956931806538972e-29,2.0209688933496795e-13,13,13,11.0,0
+helical,trf,finite-difference,scipy,CONVERGED,`gtol` termination condition is satisfied.,6.696939350145729e-29,8.050632886789981e-16,6.696939350145729e-29,2.0573149916877505e-13,46,46,11.0,0
+helical,dogbox,analytic,scipy,CONVERGED,`gtol` termination condition is satisfied.,1.5656063256705047e-25,3.816864854327532e-14,1.5656063256705047e-25,1.0069257816578441e-11,9,9,9.0,0
+helical,dogbox,finite-difference,scipy,CONVERGED,`gtol` termination condition is satisfied.,1.6762642107273093e-25,4.0963979371564385e-14,1.6762642107273093e-25,1.0178795497411333e-11,36,36,9.0,0
+expdec,lm,analytic,trust-apl,CONVERGED,,8.65198540851802e-19,3.326816869042913e-10,8.65198540851802e-19,5.380682784230726e-09,7,9,9.0,0
+expdec,lm,finite-difference,trust-apl,CONVERGED,,8.655548015034554e-19,3.327407143418629e-10,8.655548015034554e-19,5.387040163251156e-09,7,27,27.0,0
+expdec,lm,analytic,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,9,9,7.0,0
+expdec,lm,finite-difference,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,25,25,,0
+expdec,trf,analytic,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,6,6,6.0,0
+expdec,trf,finite-difference,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,18,18,6.0,0
+expdec,dogbox,analytic,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,6,6,6.0,0
+expdec,dogbox,finite-difference,scipy,CONVERGED,`gtol` termination condition is satisfied.,1.1931521191467804e-29,2.220446049250313e-16,1.1931521191467804e-29,1.0291388848223086e-13,18,18,6.0,0
+quadratic,lm,analytic,trust-apl,CONVERGED,,2.445356889868398e-18,1.398672767982103e-09,2.445356889868398e-18,4.077796813366883e-09,3,5,5.0,0
+quadratic,lm,finite-difference,trust-apl,CONVERGED,,2.445356712347798e-18,1.3986727637990892e-09,2.445356712347798e-18,4.07779660143863e-09,3,15,15.0,0
+quadratic,lm,analytic,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,2,2,2.0,0
+quadratic,lm,finite-difference,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,6,6,,0
+quadratic,trf,analytic,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,2,2,2.0,0
+quadratic,trf,finite-difference,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,6,6,2.0,0
+quadratic,dogbox,analytic,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,2,2,2.0,0
+quadratic,dogbox,finite-difference,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,6,6,2.0,0
+linear,lm,analytic,trust-apl,CONVERGED,,1.589515669541713e-17,5.568820673270251e-09,1.589515669541713e-17,5.841743137288288e-09,3,5,5.0,0
+linear,lm,finite-difference,trust-apl,CONVERGED,,1.589524082907695e-17,5.568837127322696e-09,1.589524082907695e-17,5.841751833594329e-09,3,15,15.0,0
+linear,lm,analytic,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,3,3,2.0,0
+linear,lm,finite-difference,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,9,9,,0
+linear,trf,analytic,scipy,CONVERGED,`gtol` termination condition is satisfied.,6.162975822039155e-33,1.1102230246251565e-16,6.162975822039155e-33,1.1102230246251565e-16,3,3,3.0,0
+linear,trf,finite-difference,scipy,CONVERGED,`gtol` termination condition is satisfied.,6.162975822039155e-33,1.1102230246251565e-16,6.162975822039155e-33,1.1102230246251565e-16,9,9,3.0,0
+linear,dogbox,analytic,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,3,3,3.0,0
+linear,dogbox,finite-difference,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,0.0,9,9,3.0,0

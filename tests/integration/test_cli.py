@@ -479,7 +479,7 @@ def test_run_report_writes_an_html_bundle_when_requested(tmp_path):
     run_report(tmp_path, only=["baseline"], html=True)
 
     html = (tmp_path / "report.html").read_text()
-    assert "baseline" in html
+    assert "Baseline correctness" in html
 
 
 @pytest.mark.slow

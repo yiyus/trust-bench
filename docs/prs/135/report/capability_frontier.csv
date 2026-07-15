@@ -1,0 +1,73 @@
+kappa,method,backend,status,message,cost_final,dist_to_opt,cost_gap,grad_norm_final,n_iter,n_feval,n_jeval,n_heval,panel,scale,x_scale,n,rho,fraction
+1.0,trust-exact,trust-apl,CONVERGED,,6.35792818652676e-18,3.565929723227363e-09,6.35792818652676e-18,3.565929945056902e-09,3.0,5.0,5.0,5.0,ill_conditioning,,,,,
+1.0,trust-exact,scipy,CONVERGED,Optimization terminated successfully.,0.0,1e-16,0.0,0.0,3.0,4.0,4.0,4.0,ill_conditioning,,,,,
+10.0,trust-exact,trust-apl,CONVERGED,,1.528541884022875e-15,5.520226473173111e-08,1.528541884022875e-15,6.35331101137699e-08,4.0,6.0,6.0,6.0,ill_conditioning,,,,,
+10.0,trust-exact,scipy,CONVERGED,Optimization terminated successfully.,3.3526588471893e-30,1.9860273225978185e-15,3.3526588471893e-30,1.3506446028928519e-14,3.0,4.0,4.0,4.0,ill_conditioning,,,,,
+100.0,trust-exact,trust-apl,CONVERGED,,7.860245613516715e-16,3.964841381719992e-08,7.860245613516715e-16,4.578195603237548e-08,6.0,8.0,8.0,8.0,ill_conditioning,,,,,
+100.0,trust-exact,scipy,CONVERGED,Optimization terminated successfully.,1.279509708517456e-25,5.057737450477618e-13,1.279509708517456e-25,8.721940345743054e-13,3.0,4.0,4.0,4.0,ill_conditioning,,,,,
+1000.0,trust-exact,trust-apl,CONVERGED,,7.802524635729399e-16,3.950322037555163e-08,7.802524635729399e-16,4.557951615587466e-08,8.0,10.0,10.0,10.0,ill_conditioning,,,,,
+1000.0,trust-exact,scipy,CONVERGED,Optimization terminated successfully.,1.5173584895188739e-22,1.7418851669349833e-11,1.5173584895188739e-22,2.2803992695069808e-10,3.0,4.0,4.0,4.0,ill_conditioning,,,,,
+10000.0,trust-exact,trust-apl,CONVERGED,,7.802075430119989e-16,3.950208980463922e-08,7.802075430119989e-16,4.348893339387029e-08,10.0,12.0,12.0,12.0,ill_conditioning,,,,,
+10000.0,trust-exact,scipy,CONVERGED,Optimization terminated successfully.,2.7944620416499007e-20,2.3640486616141017e-10,2.7944620416499007e-20,1.3644468666976659e-08,3.0,4.0,4.0,4.0,ill_conditioning,,,,,
+100000.0,trust-exact,trust-apl,CONVERGED,,7.814189864086542e-16,3.9532734806811074e-08,7.814189864086542e-16,2.910651526663539e-06,12.0,14.0,14.0,14.0,ill_conditioning,,,,,
+100000.0,trust-exact,scipy,CONVERGED,Optimization terminated successfully.,2.586242957256634e-15,7.191999668691166e-08,2.586242957256634e-15,7.191999662481408e-08,3.0,4.0,4.0,4.0,ill_conditioning,,,,,
+1000000.0,trust-exact,trust-apl,CONVERGED,,1.04938630781739e-18,1.429881789328423e-09,1.04938630781739e-18,0.0002328306436582603,15.0,17.0,17.0,17.0,ill_conditioning,,,,,
+1000000.0,trust-exact,scipy,FAILED,A bad approximation caused failure to predict improvement.,1.0585916594054086e-11,4.601286034765768e-06,1.0585916594054086e-11,0.00011650621867198061,3.0,4.0,4.0,4.0,ill_conditioning,,,,,
+10000000.0,trust-exact,trust-apl,STALLED,,6.964101573873082,3.732050796512035,6.964101573873082,4.317061881315968,4.0,6.0,6.0,6.0,ill_conditioning,,,,,
+10000000.0,trust-exact,scipy,FAILED,A bad approximation caused failure to predict improvement.,2.7866465826501722e-06,0.0023607823206086573,2.7866465826501722e-06,0.014167910368600205,3.0,4.0,4.0,4.0,ill_conditioning,,,,,
+100000000.0,trust-exact,trust-apl,STALLED,,6.964101614725106,3.7320508074583083,6.964101614725106,4.77598025817229,4.0,6.0,6.0,6.0,ill_conditioning,,,,,
+100000000.0,trust-exact,scipy,FAILED,A bad approximation caused failure to predict improvement.,3.2921810699588474,2.5660011963983367,3.2921810699588474,2.5660011963983367,1.0,2.0,2.0,2.0,ill_conditioning,,,,,
+,lm,trust-apl,CONVERGED,,6.357927395498188e-18,3.565929723227363e-09,6.357927395498188e-18,3.565929723227363e-09,3.0,5.0,5.0,0.0,scaling,1.0,,,,
+,lm,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,1e-16,2.0,2.0,2.0,0.0,scaling,1.0,,,,
+,lm,trust-apl,CONVERGED,,2.000301873233739e-16,3.565929723227363e-09,2.000301873233739e-16,1.978244483379693e-07,3.0,5.0,5.0,0.0,scaling,10.0,,,,
+,lm,scipy,CONVERGED,`gtol` termination condition is satisfied.,0.0,0.0,0.0,1e-16,2.0,2.0,2.0,0.0,scaling,10.0,,,,
+,lm,trust-apl,CONVERGED,,1.953119909030328e-24,3.621165613036259e-14,1.953119909030328e-24,1.97619700623184e-10,4.0,6.0,6.0,0.0,scaling,100.0,,,,
+,lm,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,1e-16,4.0,4.0,3.0,0.0,scaling,100.0,,,,
+,lm,trust-apl,CONVERGED,,1.952677303719843e-20,3.621165613036259e-14,1.952677303719843e-20,1.976196983832779e-06,4.0,6.0,6.0,0.0,scaling,10000.0,,,,
+,lm,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,1e-16,10.0,10.0,9.0,0.0,scaling,10000.0,,,,
+,lm,trust-apl,CONVERGED,,1.952677259459312e-16,3.621165613036259e-14,1.952677259459312e-16,0.01976196983832779,4.0,6.0,6.0,0.0,scaling,1000000.0,,,,
+,lm,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,1e-16,17.0,17.0,16.0,0.0,scaling,1000000.0,,,,
+,lm,trust-apl,FAILED,,2e+16,3.605551275463989,2e+16,2e+16,9.0,2.0,2.0,0.0,scaling,100000000.0,,,,
+,lm,scipy,CONVERGED,`xtol` termination condition is satisfied.,0.0,0.0,0.0,1e-16,24.0,24.0,23.0,0.0,scaling,100000000.0,,,,
+,BFGS,trust-apl,CONVERGED,,5.585543749917304e-15,2.2320130866118528e-07,5.585543749917304e-15,7.841121905033385e-07,58.0,60.0,60.0,0.0,dimensionality,,,2.0,,
+,BFGS,scipy,CONVERGED,Optimization terminated successfully.,1.43691719658426e-15,7.582293419604054e-09,1.43691719658426e-15,1.1975148897461048e-06,34.0,45.0,45.0,0.0,dimensionality,,,2.0,,
+,BFGS,trust-apl,CONVERGED,,4.059181010079864e-15,1.6837923605026472e-07,4.059181010079864e-15,1.110019274108242e-06,139.0,141.0,141.0,0.0,dimensionality,,,10.0,,
+,BFGS,scipy,CONVERGED,Optimization terminated successfully.,2.0845523766492337e-11,1.4433760129484773e-05,2.0845523766492337e-11,7.337789566605723e-06,105.0,117.0,117.0,0.0,dimensionality,,,10.0,,
+,BFGS,trust-apl,MAX_ITER,,3.71791876944288,5.103269929087538,3.71791876944288,6.234576042711028,201.0,203.0,203.0,0.0,dimensionality,,,100.0,,
+,BFGS,scipy,MAX_ITER,Maximum number of iterations has been exceeded.,0.07063205418702095,0.8460101913250904,0.07063205418702095,1.166327495257251,200.0,229.0,229.0,0.0,dimensionality,,,100.0,,
+,BFGS,trust-apl,ERROR,harness did not complete within 60s,,,,,,,,,dimensionality,,,1000.0,,
+,BFGS,scipy,MAX_ITER,Maximum number of iterations has been exceeded.,289.44201530213184,32.35877968344737,289.44201530213184,95.55006765049305,200.0,228.0,228.0,0.0,dimensionality,,,1000.0,,
+,,trust-apl,CONVERGED,,0.01800258792773757,1.0083640064099226e-11,-1.3183898417423734e-16,4.016857402463094e-10,6.0,8.0,8.0,0.0,large_residual,,,,0.3,
+,,scipy,CONVERGED,`ftol` termination condition is satisfied.,0.01800258792773771,3.0097554729885296e-09,6.938893903907228e-18,8.658688196495527e-08,6.0,6.0,5.0,0.0,large_residual,,,,0.3,
+,,trust-apl,CONVERGED,,0.2221854529288655,2.4943774036879003e-10,-4.718447854656915e-16,7.334255203283227e-09,7.0,9.0,9.0,0.0,large_residual,,,,1.0,
+,,scipy,CONVERGED,`ftol` termination condition is satisfied.,0.22218545292886677,1.1140540545975887e-08,8.049116928532385e-16,3.2816525774290253e-07,7.0,7.0,6.0,0.0,large_residual,,,,1.0,
+,,trust-apl,CONVERGED,,2.565288074225046,1.3080397851754413e-08,1.3322676295501878e-15,4.893871699096667e-07,8.0,10.0,10.0,0.0,large_residual,,,,3.0,
+,,scipy,CONVERGED,`ftol` termination condition is satisfied.,2.5652880742663093,1.943702170129502e-06,4.126476937926782e-11,6.129644690800137e-05,7.0,7.0,6.0,0.0,large_residual,,,,3.0,
+,,trust-apl,CONVERGED,,46.79735273165749,5.522215433895581e-08,6.394884621840902e-14,2.283866710081183e-06,21.0,23.0,23.0,0.0,large_residual,,,,10.0,
+,,scipy,CONVERGED,`ftol` termination condition is satisfied.,46.7973527398346,2.140646471916411e-05,8.177174493084749e-09,0.0008833396278510035,19.0,19.0,14.0,0.0,large_residual,,,,10.0,
+,,trust-apl,CONVERGED,,248.3884580581289,1.9591793813110337e-07,1.0800249583553523e-12,1.206209677952763e-05,42.0,44.0,44.0,0.0,large_residual,,,,20.0,
+,,scipy,CONVERGED,`ftol` termination condition is satisfied.,248.38845845556227,0.00011793722726249662,3.974344622292847e-07,0.007200722644758428,22.0,22.0,18.0,0.0,large_residual,,,,20.0,
+,,trust-apl,CONVERGED,,634.267814690615,4.6719410233797175e-07,8.981260180007666e-12,4.119785260962369e-05,75.0,77.0,77.0,0.0,large_residual,,,,30.0,
+,,scipy,CONVERGED,`ftol` termination condition is satisfied.,634.2678157217597,0.00015740680366616713,1.0311537153029349e-06,0.013746314783969987,24.0,24.0,18.0,0.0,large_residual,,,,30.0,
+,,trust-apl,MAX_ITER,,1977.142646717327,0.0005318218484614309,2.1225233695076895e-05,0.08195695606895477,201.0,203.0,203.0,0.0,large_residual,,,,50.0,
+,,scipy,CONVERGED,`ftol` termination condition is satisfied.,1977.1426256795244,4.997134504286944e-05,1.8743116925179493e-07,0.007905221374726237,18.0,18.0,15.0,0.0,large_residual,,,,50.0,
+,,trust-apl,CONVERGED,,4087.851768936302,7.880675119670482e-07,7.23048287909478e-11,0.0002200342731316578,45.0,47.0,47.0,0.0,large_residual,,,,70.0,
+,,scipy,CONVERGED,`ftol` termination condition is satisfied.,4087.8517743887505,0.00021539449185855632,5.4525207815459e-06,0.05470814806998734,27.0,27.0,17.0,0.0,large_residual,,,,70.0,
+,,trust-apl,CONVERGED,,8697.553830038043,2.8822168642986837e-07,1.4551915228366852e-11,0.0001358302762474534,50.0,52.0,52.0,0.0,large_residual,,,,100.0,
+,,scipy,CONVERGED,`ftol` termination condition is satisfied.,8697.553832216869,9.981998561634761e-05,2.1788400772493333e-06,0.24413748281126285,26.0,26.0,17.0,0.0,large_residual,,,,100.0,
+,,trust-apl,CONVERGED,,17540.87344055229,5.6529395955945e-07,9.822542779147625e-11,0.0004461335605646292,50.0,52.0,52.0,0.0,large_residual,,,,140.0,
+,,scipy,CONVERGED,`ftol` termination condition is satisfied.,17540.87344064966,1.7436350734548e-05,9.746872819960117e-08,0.012470368573810306,26.0,26.0,18.0,0.0,large_residual,,,,140.0,
+,,trust-apl,,,,5.1220814518644765e-08,,,,,,,robust_loss,,,,,0.0
+,,scipy,,,,1e-16,,,,,,,robust_loss,,,,,0.0
+,,trust-apl,,,,3.1306581429730174,,,,,,,robust_loss,,,,,0.1
+,,scipy,,,,3.13065814297302,,,,,,,robust_loss,,,,,0.1
+,,trust-apl,,,,5.629731570068008,,,,,,,robust_loss,,,,,0.2
+,,scipy,,,,5.6297315700680075,,,,,,,robust_loss,,,,,0.2
+,,trust-apl,,,,7.499999999999999,,,,,,,robust_loss,,,,,0.3
+,,scipy,,,,7.499999999999999,,,,,,,robust_loss,,,,,0.3
+,,trust-apl,,,,8.745844494293696,,,,,,,robust_loss,,,,,0.4
+,,scipy,,,,8.745844494293692,,,,,,,robust_loss,,,,,0.4
+,,trust-apl,,,,9.136716687997646,,,,,,,robust_loss,,,,,0.45
+,,scipy,,,,9.136716687997644,,,,,,,robust_loss,,,,,0.45
+,,trust-apl,,,,9.374574820290489,,,,,,,robust_loss,,,,,0.49
+,,scipy,,,,9.37457482029049,,,,,,,robust_loss,,,,,0.49

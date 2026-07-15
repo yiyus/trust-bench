@@ -21,10 +21,24 @@ _METRIC_FIELDS = [
     "n_heval",
 ]
 
+_TIMING_FIELDS = ["timing_median", "timing_mad", "timing_n_reps", "timing_warmup", "timing_thread_count"]
+
 # message is populated (str(exception)) rather than blanked below: it's
 # the only thing that distinguishes one declared-unsupported rejection
 # from another in a table full of otherwise-identical UNSUPPORTED rows.
 _BLANKED_ON_EXCEPTION = _METRIC_FIELDS[2:]
+
+
+def _flatten_timing(row, result):
+    if result.timing is None:
+        for field in _TIMING_FIELDS:
+            row[field] = None
+    else:
+        row["timing_median"] = result.timing.median
+        row["timing_mad"] = result.timing.mad
+        row["timing_n_reps"] = result.timing.n_reps
+        row["timing_warmup"] = result.timing.warmup
+        row["timing_thread_count"] = result.timing.thread_count
 
 
 def results_to_dataframe(results, key_names):
@@ -50,12 +64,15 @@ def results_to_dataframe(results, key_names):
             row["message"] = str(result)
             for field in _BLANKED_ON_EXCEPTION:
                 row[field] = None
+            for field in _TIMING_FIELDS:
+                row[field] = None
         else:
             row["status"] = result.status.value
             for field in _METRIC_FIELDS[1:]:
                 row[field] = getattr(result, field)
+            _flatten_timing(row, result)
         rows.append(row)
-    return pd.DataFrame(rows, columns=[*key_names, *_METRIC_FIELDS])
+    return pd.DataFrame(rows, columns=[*key_names, *_METRIC_FIELDS, *_TIMING_FIELDS])
 
 
 def save_table(df, path):
