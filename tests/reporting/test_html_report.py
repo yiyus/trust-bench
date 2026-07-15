@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 
 from trust_bench.reporting import colors
-from trust_bench.reporting.html_report import build_html_report, save_html_report
+from trust_bench.reporting.html_report import TIER_2_INTROS, TITLES, build_html_report, save_html_report
 from trust_bench.reporting.plots import plot_metric_vs_sweep, save_figure
 from trust_bench.reporting.tables import save_table
 
@@ -56,26 +56,40 @@ def populated_report(tmp_path):
     return tmp_path
 
 
+def _heading(name):
+    return f"<h3>{TITLES[name]}</h3>"
+
+
 def test_headline_artefacts_are_rendered_before_any_themed_study(populated_report):
     html = build_html_report(populated_report)
 
-    headline_position = html.index("<h3>parity_scatter</h3>")
-    themed_position = html.index("<h3>baseline</h3>")
+    headline_position = html.index(_heading("parity_scatter"))
+    themed_position = html.index(_heading("baseline"))
     assert headline_position < themed_position
 
 
-def test_tier_2_studies_are_grouped_under_their_theme_headings(populated_report):
+def test_headline_artefacts_show_only_their_plot_not_a_raw_table(populated_report):
+    html = build_html_report(populated_report)
+
+    headline_section = html[html.index(_heading("parity_scatter")) : html.index(_heading("baseline"))]
+    assert "<table" not in headline_section
+    assert "<img" in headline_section
+
+
+def test_tier_2_studies_are_grouped_under_their_theme_headings_with_an_intro(populated_report):
     html = build_html_report(populated_report)
 
     assert "Common problems" in html
     assert "Difficulty axes" in html
     assert "Special capabilities" in html
+    assert TIER_2_INTROS["Common problems"] in html
+    assert TIER_2_INTROS["Difficulty axes"] in html
     common_problems = html.index("Common problems")
-    baseline = html.index("<h3>baseline</h3>")
+    baseline = html.index(_heading("baseline"))
     difficulty_axes = html.index("Difficulty axes")
-    large_residual = html.index("<h3>large_residual</h3>")
+    large_residual = html.index(_heading("large_residual"))
     special_capabilities = html.index("Special capabilities")
-    robust_loss = html.index("<h3>robust_loss</h3>")
+    robust_loss = html.index(_heading("robust_loss"))
     assert common_problems < baseline < difficulty_axes
     assert difficulty_axes < large_residual < special_capabilities
     assert special_capabilities < robust_loss
@@ -111,6 +125,14 @@ def test_a_fixed_backend_colour_legend_is_always_shown(populated_report):
     for name, color in colors.BACKEND_COLORS.items():
         assert name in html
         assert color in html
+
+
+def test_backend_values_in_tables_are_rendered_with_their_fixed_colour(populated_report):
+    html = build_html_report(populated_report)
+
+    assert 'class="backend-cell"' in html
+    assert f'style="color:{colors.backend_color("scipy")}"' in html
+    assert f'style="color:{colors.backend_color("trust-apl")}"' in html
 
 
 def test_timing_columns_are_displayed_as_median_pm_mad_with_units(populated_report):
