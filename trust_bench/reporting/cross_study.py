@@ -64,6 +64,16 @@ def parity_frame(backends=BACKENDS):
     backend pair), for the parity scatter. robust_loss is excluded: its
     own precision tables report distance to the true parameters, not
     dist_to_opt, and don't share this shape.
+
+    scalar_cost is also excluded, for a different reason: trust-apl has
+    no evaluator for its Jacobian-free scalar objectives at all (every
+    "BFGS" row reports ERROR, "Unknown problem_id"; it doesn't declare
+    "L-BFGS-B" at all), so there is no trust-apl side to plot - pooling
+    it here would make _pivot_by_backend's own missing-backend guard
+    raise unconditionally on any two-backend call, not just when
+    trust-apl happens to be one of the two (confirmed directly). See
+    docs/methodology.md's "scalar_cost and the parity/frontier pool"
+    section.
     """
     if len(backends) != 2:
         raise ValueError(f"parity comparison needs exactly two backends, got {[b.name for b in backends]}")
@@ -127,6 +137,13 @@ def frontier_panels(backends=BACKENDS):
     is restricted to a single representative method (see the module
     constants above) so every panel is a clean backend-vs-backend line,
     matching plot_capability_frontier's own one-line-per-backend shape.
+
+    scalar_cost has no panel here: it has no swept difficulty parameter
+    (two fixed problems, rastrigin/cauchy_mle, not a kappa/scale/n/rho/
+    fraction sweep), so there is no natural x-axis for a small-multiples
+    panel - a different reason than its exclusion from parity_frame
+    above. See docs/methodology.md's "scalar_cost and the parity/
+    frontier pool" section.
     """
     ill_conditioning_df = results_to_dataframe(
         ill_conditioning.sweep(methods=[_ILL_CONDITIONING_METHOD], backends=backends),
