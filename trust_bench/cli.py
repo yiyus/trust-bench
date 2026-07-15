@@ -7,6 +7,7 @@ import pandas as pd
 from trust_bench.backends import BACKENDS
 from trust_bench.backends.apl_backend import APLBackend
 from trust_bench.backends.scipy_backend import SciPyBackend
+from trust_bench.core.runner import measuring_timing
 from trust_bench.reporting.capability_matrix import derive_matrix
 from trust_bench.reporting.cross_study import frontier_panels, parity_frame
 from trust_bench.reporting.html_report import build_html_report, save_html_report
@@ -289,11 +290,12 @@ def run_report(output_dir, only=None, skip=None, skip_slow=False, html=False, ba
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     skipped = {}
-    for name in sorted(selected):
-        try:
-            STUDIES[name](output_dir, selected_backends)
-        except CoverageError as error:
-            skipped[name] = str(error)
+    with measuring_timing():
+        for name in sorted(selected):
+            try:
+                STUDIES[name](output_dir, selected_backends)
+            except CoverageError as error:
+                skipped[name] = str(error)
 
     if skipped and len(skipped) == len(selected):
         reasons = "; ".join(f"{name}: {message}" for name, message in sorted(skipped.items()))
