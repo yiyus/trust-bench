@@ -416,8 +416,14 @@ unconditional regressed the full test suite badly - every correctness
 check that calls `solve()`, not just report generation, paid the full
 repetition cost, compounding worst against the already-slowest tests
 (confirmed directly: `dimensionality(n=1000)`/`trust-exact` went from
-~4s to ~23s). Only a caller that actually wants real `TimingStats`
-(report generation) sets `measure_timing=True`.
+~4s to ~23s). No study sets `measure_timing=True` itself, for the same
+reason: each one is also called directly by tests that want correctness,
+not a timing measurement. Instead, `trust_bench.core.runner.
+measuring_timing()` (a `contextvars`-based context manager) forces it
+on for every `run()` call made inside it; `cli.py`'s `run_report` wraps
+its whole per-study loop in this context once, so a real `trust-bench
+report` run gets genuine `TimingStats` throughout without any study
+module needing its own opt-in.
 
 When it is set, both backends follow the same policy (Section 7 of the
 design doc): one discarded warm-up solve, then five measured repetitions, reporting
