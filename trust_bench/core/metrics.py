@@ -39,6 +39,16 @@ def rate(errors, floor=1e-12):
     return float(np.median(ratios))
 
 
+def mad(values):
+    """Median absolute deviation, scaled by 1.4826 (the normal-consistent
+    constant this project already uses in robust_loss.py's irls_tukey)
+    so it's directly comparable to a standard deviation. 0.0 for
+    identical values.
+    """
+    v = np.asarray(values, dtype=float)
+    return float(1.4826 * np.median(np.abs(v - np.median(v))))
+
+
 def basin_rate(distances_to_opt, tol):
     """Fraction of runs whose distance to a known optimum is within `tol`.
 

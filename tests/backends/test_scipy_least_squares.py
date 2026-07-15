@@ -7,6 +7,7 @@ import trust_bench.backends.scipy_backend as scipy_backend_module
 from trust_bench.backends.scipy_backend import SciPyBackend
 from trust_bench.core.config import RunConfig
 from trust_bench.core.result import RunStatus
+from trust_bench.core.timing import N_REPS, WARMUP
 from trust_bench.problems import quadratic
 
 BACKEND = SciPyBackend()
@@ -172,7 +173,11 @@ def test_n_feval_counts_every_residual_call_including_finite_difference_jacobian
         problem, method, START, RunConfig(max_iter=100, derivative_mode="finite-difference")
     )
 
-    assert result.n_feval == len(calls)
+    # solve() now performs WARMUP+N_REPS identical, deterministic solves
+    # (docs/prs/138.md's timing instrumentation) - the spy counts every
+    # one of them, while n_feval reports only the last repetition's own
+    # count.
+    assert result.n_feval == len(calls) / (WARMUP + N_REPS)
 
 
 @pytest.mark.parametrize("method", LEAST_SQUARES_METHODS)
@@ -193,4 +198,6 @@ def test_n_feval_does_not_count_an_extra_call_made_only_to_report_grad_norm_fina
 
     result = BACKEND.solve(problem, method, START, RunConfig(max_iter=100))
 
-    assert result.n_feval == len(calls)
+    # See the finite-difference case above: WARMUP+N_REPS identical
+    # solves, spy counts every one, n_feval reports only the last.
+    assert result.n_feval == len(calls) / (WARMUP + N_REPS)
