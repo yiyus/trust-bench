@@ -74,11 +74,12 @@ class _AlwaysErrorsBackend(Backend):
             timestamp="2026-01-01T00:00:00Z",
         )
 
+
 class _LmOnlyBackend(Backend):
     """Genuinely solves lm-based studies (baseline) but always reports
     ERROR for BFGS/L-BFGS-B (scalar_cost's own methods) - models
-    trust-apl's real, permanent scalar_cost gap (#136) without depending
-    on dyalogscript being installed.
+    trust-apl's real, permanent scalar_cost gap without depending on
+    dyalogscript being installed.
     """
 
     name = "lm-only"

@@ -264,18 +264,36 @@ def _select_backends(names=None):
 
 
 def run_report(output_dir, only=None, skip=None, skip_slow=False, html=False, backends=None):
+    """Runs every selected study, writing each one's artefacts to
+    output_dir. A study whose selected backend(s) have a known,
+    permanent coverage gap (e.g. trust-apl has no evaluator for
+    scalar_cost's Jacobian-free scalar objectives at all) is skipped,
+    not fatal to the rest of the report - _check_backend_coverage's own
+    ValueError is caught per study and collected into the returned
+    `skipped` mapping instead of aborting. If every selected study fails
+    this way there is nothing to report at all, a genuine failure, so
+    that case still raises.
+    """
     selected_backends = _select_backends(backends)
     selected = _select_studies(only=only, skip=skip, skip_slow=skip_slow, n_backends=len(selected_backends))
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    skipped = {}
     for name in sorted(selected):
-        STUDIES[name](output_dir, selected_backends)
+        try:
+            STUDIES[name](output_dir, selected_backends)
+        except ValueError as error:
+            skipped[name] = str(error)
+
+    if skipped and len(skipped) == len(selected):
+        reasons = "; ".join(f"{name}: {message}" for name, message in sorted(skipped.items()))
+        raise ValueError(f"every selected study failed - {reasons}")
 
     if html:
         save_html_report(build_html_report(output_dir), output_dir / "report.html")
 
-    return output_dir
+    return output_dir, skipped
 
 
 def build_parser():
@@ -337,7 +355,7 @@ def build_parser():
 def main(argv=None):
     args = build_parser().parse_args(argv if argv is not None else sys.argv[1:])
     if args.command == "report":
-        output_dir = run_report(
+        output_dir, skipped = run_report(
             args.output_dir,
             only=args.only,
             skip=args.skip,
@@ -345,6 +363,8 @@ def main(argv=None):
             html=args.html,
             backends=args.backends,
         )
+        for name, message in sorted(skipped.items()):
+            print(f"Skipped {name}: {message}", file=sys.stderr)
         print(f"Report artefacts written to {output_dir}")
 
 
