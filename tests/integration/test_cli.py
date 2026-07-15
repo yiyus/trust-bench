@@ -393,6 +393,24 @@ def test_run_report_skips_a_study_with_a_known_backend_coverage_gap_instead_of_c
     assert stub.name in skipped["scalar_cost"]
 
 
+def test_run_report_does_not_absorb_an_unrelated_value_error_as_a_coverage_gap(tmp_path, monkeypatch):
+    # Only _check_backend_coverage's own CoverageError is a known,
+    # expected coverage gap; a plain ValueError from anywhere else in a
+    # study's write path is a real bug and must still crash the report,
+    # not get silently recorded in `skipped` alongside genuine gaps. A
+    # second, healthy study is selected alongside the broken one so a
+    # too-broad catch (absorb-and-continue, only raising once every
+    # single selected study has failed) can't masquerade as correct
+    # propagation the way it would with only one study selected.
+    def _broken_writer(output_dir, backends):
+        raise ValueError("unrelated bug: malformed input, not a coverage gap")
+
+    monkeypatch.setitem(STUDIES, "baseline", _broken_writer)
+
+    with pytest.raises(ValueError, match="unrelated bug"):
+        run_report(tmp_path, only=["baseline", "large_residual"])
+
+
 def test_main_prints_a_note_for_each_skipped_study(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(
         "trust_bench.cli.run_report",

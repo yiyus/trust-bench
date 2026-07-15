@@ -35,6 +35,15 @@ from trust_bench.studies import (
 AVAILABLE_BACKENDS = {backend.name: backend for backend in [SciPyBackend(), APLBackend()]}
 
 
+class CoverageError(ValueError):
+    """Raised only by _check_backend_coverage - distinct from any other
+    ValueError a study's write path might raise (an unsupported
+    x_scale/loss/derivative_mode combination, an invalid problem-family
+    parameter), so run_report's per-study catch absorbs a genuine, known
+    coverage gap and nothing else.
+    """
+
+
 def _check_backend_coverage(df, backends, study):
     """Raise clearly if a selected backend produced zero usable rows for
     this study, rather than let a study's own per-pair skip guard (e.g.
@@ -46,7 +55,7 @@ def _check_backend_coverage(df, backends, study):
     rows = df[~df["status"].isin(NON_RESULT_STATUSES)] if "status" in df.columns else df
     missing = {backend.name for backend in backends} - set(rows["backend"])
     if missing:
-        raise ValueError(f"{study}: no results for backend(s) {', '.join(sorted(missing))}")
+        raise CoverageError(f"{study}: no results for backend(s) {', '.join(sorted(missing))}")
 
 
 def _baseline_basin_rate_table(backends):
@@ -269,7 +278,7 @@ def run_report(output_dir, only=None, skip=None, skip_slow=False, html=False, ba
     permanent coverage gap (e.g. trust-apl has no evaluator for
     scalar_cost's Jacobian-free scalar objectives at all) is skipped,
     not fatal to the rest of the report - _check_backend_coverage's own
-    ValueError is caught per study and collected into the returned
+    CoverageError is caught per study and collected into the returned
     `skipped` mapping instead of aborting. If every selected study fails
     this way there is nothing to report at all, a genuine failure, so
     that case still raises.
@@ -283,7 +292,7 @@ def run_report(output_dir, only=None, skip=None, skip_slow=False, html=False, ba
     for name in sorted(selected):
         try:
             STUDIES[name](output_dir, selected_backends)
-        except ValueError as error:
+        except CoverageError as error:
             skipped[name] = str(error)
 
     if skipped and len(skipped) == len(selected):
