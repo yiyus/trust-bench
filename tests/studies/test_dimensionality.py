@@ -11,15 +11,18 @@ from trust_bench.core.runner import run
 from trust_bench.problems.families import dimensionality
 from trust_bench.studies.dimensionality import DENSE_METHODS, MATRIX_FREE_METHODS, METHODS, N_VALUES, sweep
 
-_LARGEST_N = 200
-# A single wall-clock measurement of a ~0.1-0.2s reference call is noisy
-# enough that its ratio against a several-second dense-method call
-# occasionally dips close to a 5x threshold under system load (observed
-# directly: as low as 5.07x from one bad reference measurement). The
-# median of a few repeats stabilises the reference time; even so,
-# measured over 15 repeated trials the minimum observed ratio was
-# ~5.8x, so 3x leaves a comfortable margin without weakening the
-# claim ("costs far more per step") this test makes.
+_LARGEST_N = 300
+# Below this, the reference call is fast enough (single-digit
+# milliseconds) that fixed per-call overhead dominates its own wall
+# time, not the O(n)-vs-O(n^2)/O(n^3) cost difference this test
+# measures - confirmed directly: n=200 gave a minimum observed ratio of
+# only ~2.5x over repeated trials on CI hardware, below this test's own
+# 3x threshold, causing a real (non-flaky-in-the-usual-sense) failure.
+# At n=300, 10 repeated trials gave a minimum observed ratio of ~7.8x,
+# so 3x leaves a comfortable margin without weakening the claim
+# ("costs far more per step") this test makes, and without paying
+# n=1000's own cost (the whole point of that scale, reserved for the
+# study itself - see dimensionality.py's own comment).
 _SLOW_METHOD_TIME_RATIO = 3
 _TIMING_REPS = 3
 
