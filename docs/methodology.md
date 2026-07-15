@@ -373,3 +373,36 @@ land on identical values - a matched tuning constant controls for the
 loss shape, not for the two solvers' different optimisation paths
 through it - but the dominant, systematic driver of the original gap is
 gone.
+
+## scalar_cost and the parity/frontier pool
+
+`scalar_cost` (`rastrigin`/`cauchy_mle`, genuine Jacobian-free scalar
+objectives exercising `BFGS`/`L-BFGS-B` on their own terms) is in
+neither `cross_study.parity_frame`'s pooled comparison nor
+`frontier_panels`'s small-multiples chart, for two independent reasons.
+
+**Parity scatter**: shape-wise, `scalar_cost` would fit - like
+`baseline`/`typical`/`bounded`, its rows are already `dist_to_opt`/
+`status` per `(problem_id, method, backend)`, not `robust_loss`'s own
+distance-to-true-parameters shape. The blocker is `trust-apl` itself:
+it has no evaluator for either problem at all (`APLBackend` doesn't
+even declare `"L-BFGS-B"`; every `"BFGS"` row reports `ERROR`,
+`"Unknown problem_id"`). Confirmed directly: pooling `scalar_cost`
+alongside the other three studies and pivoting it the same way raises
+`_pivot_by_backend`'s own missing-backend guard unconditionally
+(`ValueError: no results for backend(s) trust-apl`) on any two-backend
+call - there is no `trust-apl` side to plot at all, not merely a partial
+gap `results_to_dataframe`'s `UNSUPPORTED`/`ERROR` labelling could
+paper over.
+
+**Capability frontier**: `scalar_cost` sweeps two fixed problems with no
+difficulty parameter at all - unlike every other panel here
+(`kappa`/`scale`/`n`/`rho`/`fraction`), there is no natural x-axis for a
+small-multiples line, so it doesn't fit this chart's shape regardless of
+backend coverage.
+
+Both exclusions are permanent under the current `trust-apl` capability
+set, not a gap to close by more report-side wiring: the parity blocker
+specifically would need `trust-apl` to gain a Jacobian-free scalar
+evaluator first (a real, nontrivial capability gap in its own right, not
+a reporting-layer fix) - out of scope here, and not attempted.
