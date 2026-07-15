@@ -88,6 +88,36 @@ design that would need threading through every one of those files.
   cleanly tears down the stuck session; a freshly-spawned session handles
   the next, unrelated request correctly with no special caller-visible
   behaviour.
+- **`⍞` silently mangles a long, piped, non-interactive input line** past
+  roughly 1-2KB (confirmed directly: a controlled length sweep - 1000
+  chars read correctly, 2000 chars came back as length 583, not 2000 or
+  any other consistent value) - not a clean truncation at a fixed byte
+  boundary, some kind of session-line-editing/wrapping corruption specific
+  to non-tty input. This breaks a real, exercised case:
+  `dimensionality(n=1000)`'s own request carries a 1000-element `x0` array,
+  comfortably over the threshold. Worked around by never sending the
+  request body itself over stdin: Python writes it to a small temp file
+  and sends only that file's *path* (always short) as the stdin line;
+  `session.dyalog` reads the path via `⍞` (safe) and the real request via
+  `⎕NGET` the same way the existing one-shot `run.dyalog` already does.
+- **`⎕←` wraps any single output past 32767 characters into several
+  physical `\r`-terminated segments**, each one after the first padded
+  with exactly 6 leading space characters that aren't part of the actual
+  payload (confirmed directly, byte-for-byte, with both a uniform-fill
+  test and a realistic large JSON array - no data loss, only where the
+  `\r` lands and that fixed padding). This is the *output* direction (no
+  file-path workaround available, since the response's whole point is to
+  travel back over stdout) - it broke `dimensionality(n=1000)`'s own
+  `evaluate_problem` response (a 1000x1000 Hessian) and, worse, corrupted
+  every *subsequent*, unrelated request for the rest of that pytest
+  process, since the leftover unread wrap fragments desynchronised the
+  next read from message boundaries entirely. Fixed by having
+  `session.dyalog` announce the payload's own character length on its
+  own short line first (always well under the wrap width), so the Python
+  reader knows exactly how many payload characters to expect and
+  correctly reassembles them regardless of how many physical `\r`-wrapped
+  segments they arrive across, stripping the 6-space padding from every
+  segment but the first.
 
 **4. Timeout and crash recovery: kill-and-restart, not silent retry.**
 - Read times out, or the process is found dead (`proc.poll() is not None`)

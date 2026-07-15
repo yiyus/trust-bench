@@ -1,8 +1,13 @@
+import atexit
 import json
 import re
+import select
 import subprocess
 import tempfile
+import threading
+import time
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -11,7 +16,7 @@ from trust_bench.core.backend import Backend, Capabilities, MethodCapabilities
 from trust_bench.core.provenance import capture, harness_git_sha
 from trust_bench.core.result import RunResult, RunStatus
 
-_HARNESS = Path(__file__).resolve().parents[2] / "backends_ext" / "apl" / "run_harness.sh"
+_SESSION_SCRIPT = Path(__file__).resolve().parents[2] / "backends_ext" / "apl" / "run_session.sh"
 
 _STATUS = {
     "CONVERGED": RunStatus.CONVERGED,
@@ -57,21 +62,165 @@ def _timeout_result(message: str) -> dict:
     }
 
 
-def _run_harness(request: dict) -> dict:
-    with tempfile.TemporaryDirectory() as tmp:
-        input_path = Path(tmp) / "request.json"
-        output_path = Path(tmp) / "result.json"
-        input_path.write_text(json.dumps(request))
+# One dyalogscript process, started lazily on first use and shared by
+# every APLBackend instance and evaluate_problem() call in this process
+# (a study's sweep(), a test file's own APLBackend(), trust-bench
+# report's CLI - all funnel through this same module-level handle,
+# never their own instance state), for the life of the process. Runs
+# backends_ext/apl/session.dyalog via run_session.sh: a persistent
+# request/response loop over stdin/stdout instead of a fresh subprocess
+# per call - interpreter startup (3-9s, confirmed directly) is paid
+# once per process, not once per solve().
+_session: subprocess.Popen | None = None
+_session_buffer = b""
+_session_lock = threading.Lock()
+
+
+def _start_session() -> subprocess.Popen:
+    return subprocess.Popen(
+        ["bash", str(_SESSION_SCRIPT)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        bufsize=0,
+    )
+
+
+def _kill_session() -> None:
+    global _session, _session_buffer
+    if _session is not None:
+        _session.kill()
+        _session.wait()
+    _session = None
+    _session_buffer = b""
+
+
+def _read_until_cr(proc: subprocess.Popen, deadline: float) -> bytes | None:
+    """Bytes up to (not including) the next \\r in proc's stdout, or
+    None on timeout/EOF.
+
+    dyalogscript's own ⎕← terminates every physical line with a bare
+    \\r, not \\n (confirmed directly) - Python's text-mode,
+    universal-newlines readline() cannot safely handle this without
+    risking a deadlock (it must peek one more byte to rule out \\r\\n,
+    and the interpreter is meanwhile blocked waiting for the next
+    request, confirmed directly by reproducing the hang), so this
+    reads raw bytes and splits on \\r itself. select bounds the wait so
+    a hung request doesn't block forever, without adding
+    threading/queue machinery for what is still a synchronous,
+    one-request-at-a-time protocol.
+    """
+    global _session_buffer
+    while b"\r" not in _session_buffer:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        ready, _, _ = select.select([proc.stdout], [], [], remaining)
+        if not ready:
+            return None
+        chunk = proc.stdout.read(65536)
+        if not chunk:
+            return None
+        _session_buffer += chunk
+    line, _, _session_buffer = _session_buffer.partition(b"\r")
+    return line
+
+
+# dyalogscript's own hanging-indent width for a wrapped continuation
+# segment (confirmed directly: every physical \r-terminated segment
+# after the first one, in output past 32767 characters, starts with
+# exactly 6 padding spaces that aren't part of the actual payload).
+_WRAP_INDENT = 6
+
+
+def _read_response(proc: subprocess.Popen, timeout: float) -> str | None:
+    """One full response from proc's stdout, or None on timeout/EOF.
+
+    ⎕← wraps any single output past 32767 characters into several
+    physical \\r-terminated segments, each after the first padded with
+    _WRAP_INDENT leading spaces (confirmed directly: a large Hessian at
+    dimensionality(n=1000) triggers this, with no data loss across the
+    wrap - only where the \\r lands and that padding). session.dyalog
+    announces the payload's own length on its own short line first
+    (always well under the wrap width), so the reader knows exactly how
+    many payload characters to expect and can reassemble however many
+    physical segments they arrive wrapped across.
+    """
+    deadline = time.monotonic() + timeout
+    length_bytes = _read_until_cr(proc, deadline)
+    if length_bytes is None:
+        return None
+    length = int(length_bytes)
+
+    payload = bytearray()
+    first_segment = True
+    while len(payload) < length:
+        segment = _read_until_cr(proc, deadline)
+        if segment is None:
+            return None
+        if not first_segment:
+            segment = segment[_WRAP_INDENT:]
+        first_segment = False
+        payload.extend(segment)
+    return bytes(payload[:length]).decode()
+
+
+def _send_request(request: dict) -> dict:
+    """Round-trips one request through the shared session, starting or
+    replacing it as needed. A dead session (crashed, or killed after a
+    prior timeout) is silently replaced by a fresh one before this
+    request is sent - only *this* request's own outcome is affected by
+    whatever went wrong, not surfaced as a special exception the caller
+    must handle differently from any other harness-reported ERROR.
+
+    The request itself travels via a temp file, not directly as a
+    stdin line: confirmed directly that ⍞ (APL's line-input primitive)
+    silently mangles a piped, non-interactive line past roughly 1-2KB
+    (e.g. a dimensionality(n=1000) request's own x0 array) - session.dyalog
+    reads a short file *path* off stdin instead, well within any such
+    limit, then reads the real request from that file the same way the
+    one-shot run.dyalog already does. The response has no such
+    limit (confirmed directly up to 20000 characters) and travels
+    directly as a single ⎕← line.
+    """
+    global _session
+    with _session_lock:
+        if _session is None or _session.poll() is not None:
+            _kill_session()
+            _session = _start_session()
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(request, f)
+            request_path = f.name
         try:
-            subprocess.run(
-                ["bash", str(_HARNESS), str(input_path), str(output_path)],
-                capture_output=True,
-                text=True,
-                timeout=_TIMEOUT_SECONDS,
-            )
-        except subprocess.TimeoutExpired:
-            return _timeout_result(f"harness did not complete within {_TIMEOUT_SECONDS}s")
-        return json.loads(output_path.read_text())
+            try:
+                _session.stdin.write((request_path + "\n").encode())
+                _session.stdin.flush()
+            except (BrokenPipeError, OSError):
+                _kill_session()
+                return _timeout_result(f"harness did not complete within {_TIMEOUT_SECONDS}s")
+            line = _read_response(_session, _TIMEOUT_SECONDS)
+            if line is None:
+                _kill_session()
+                return _timeout_result(f"harness did not complete within {_TIMEOUT_SECONDS}s")
+            return json.loads(line)
+        finally:
+            Path(request_path).unlink(missing_ok=True)
+
+
+def _shutdown_session() -> None:
+    global _session
+    if _session is not None and _session.poll() is None:
+        try:
+            _session.stdin.write(b"\n")
+            _session.stdin.flush()
+            _session.stdin.close()
+            _session.wait(timeout=5)
+        except Exception:
+            _session.kill()
+    _session = None
+
+
+atexit.register(_shutdown_session)
 
 
 def evaluate_problem(problem_id: str, x) -> tuple[list[float], list[list[float]], list[list[float]]]:
@@ -81,13 +230,19 @@ def evaluate_problem(problem_id: str, x) -> tuple[list[float], list[list[float]]
     point.
     """
     request = {"mode": "evaluate", "problem_id": problem_id, "x": np.asarray(x, dtype=float).tolist()}
-    response = _run_harness(request)
+    response = _send_request(request)
     if response["status"] != "OK":
         raise RuntimeError(response["message"])
     return response["residual"], response["jacobian"], response["hessian"]
 
 
+@lru_cache(maxsize=1)
 def _dyalog_version() -> str:
+    # A fresh interpreter startup in its own right (confirmed directly,
+    # ~3-7s) - previously invisible under the harness's own per-call
+    # startup cost, now the dominant cost of every solve() call if not
+    # cached, since the version can't change within one process's
+    # lifetime.
     try:
         result = subprocess.run(
             ["dyalog", "-version"],
@@ -194,7 +349,7 @@ class APLBackend(Backend):
         if config.x_scale is not None:
             request["pscale"] = np.asarray(config.x_scale, dtype=float).tolist()
 
-        response = _run_harness(request)
+        response = _send_request(request)
 
         x_final = response["x_final"]
         dist_to_opt = cost_gap = None
