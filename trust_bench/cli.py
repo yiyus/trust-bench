@@ -7,7 +7,9 @@ import pandas as pd
 from trust_bench.backends import BACKENDS
 from trust_bench.backends.apl_backend import APLBackend
 from trust_bench.backends.scipy_backend import SciPyBackend
+from trust_bench.core import storage
 from trust_bench.core.runner import measuring_timing
+from trust_bench.reporting import compare as compare_module
 from trust_bench.reporting.capability_matrix import derive_matrix
 from trust_bench.reporting.cross_study import frontier_panels, parity_frame
 from trust_bench.reporting.html_report import build_html_report, save_html_report
@@ -307,6 +309,34 @@ def run_report(output_dir, only=None, skip=None, skip_slow=False, html=False, ba
     return output_dir, skipped
 
 
+def run_compare(baseline_path, candidate_path, output_dir, html=False):
+    """Loads two stored result sets and writes the longitudinal
+    comparison (Section 8): compare.csv (classification with full
+    baseline/candidate provenance) and compare.png (classification
+    counts per backend). With html=True, folds the same artefacts into
+    report.html via the same build_html_report/save_html_report path
+    `trust-bench report --html` uses, so a comparison run adds to
+    whatever report already exists in output_dir instead of building a
+    second one.
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    baseline = storage.load(baseline_path)
+    candidate = storage.load(candidate_path)
+    table = compare_module.compare_with_provenance(baseline, candidate)
+    save_table(table, output_dir / "compare.csv")
+
+    counts = compare_module.classification_counts(table)
+    fig = plot_metric_by_category(counts, category="backend", y="count", group="classification")
+    save_figure(fig, output_dir / "compare.png")
+
+    if html:
+        save_html_report(build_html_report(output_dir), output_dir / "report.html")
+
+    return output_dir
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="trust-bench",
@@ -360,6 +390,29 @@ def build_parser():
         action="store_true",
         help="Also write report.html, bundling every table and plot into one self-contained page.",
     )
+
+    compare_parser = subparsers.add_parser(
+        "compare",
+        help="Diff two stored result sets and classify changes as regressions or drift.",
+        description=(
+            "Loads two results/*.jsonl files and classifies each matched run: a "
+            "changed Tier-1 metric is a regression, a changed Tier-3 timing with no "
+            "Tier-1 change is drift. Reports both classifications with full "
+            "baseline/candidate provenance."
+        ),
+    )
+    compare_parser.add_argument("baseline", help="Path to the baseline results/*.jsonl file.")
+    compare_parser.add_argument("candidate", help="Path to the candidate results/*.jsonl file.")
+    compare_parser.add_argument(
+        "--output-dir",
+        default="reports",
+        help="Directory to write compare.csv/compare.png to (default: %(default)s).",
+    )
+    compare_parser.add_argument(
+        "--html",
+        action="store_true",
+        help="Also (re)write report.html, folding the comparison into the existing report bundle.",
+    )
     return parser
 
 
@@ -377,6 +430,9 @@ def main(argv=None):
         for name, message in sorted(skipped.items()):
             print(f"Skipped {name}: {message}", file=sys.stderr)
         print(f"Report artefacts written to {output_dir}")
+    elif args.command == "compare":
+        output_dir = run_compare(args.baseline, args.candidate, args.output_dir, html=args.html)
+        print(f"Comparison artefacts written to {output_dir}")
 
 
 if __name__ == "__main__":

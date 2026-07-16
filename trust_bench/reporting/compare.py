@@ -78,3 +78,33 @@ def drift_summary(compared):
     """
     drift = compared[compared["classification"] == DRIFT]
     return drift.groupby(["machine_fingerprint", "backend_version"]).size().reset_index(name="n_drifted")
+
+
+def compare_with_provenance(baseline, candidate, key_columns=DEFAULT_KEY_COLUMNS, tier1_tol=1e-9):
+    """`compare()`'s classification, plus every `EnvProvenance` field for
+    both sides (prefixed `baseline_`/`candidate_`): a regression or
+    drift needs its full environment to be attributable, not only the
+    machine_fingerprint/backend_version `compare()` itself needs for
+    `drift_summary`'s grouping. Provenance is joined back onto the
+    classification explicitly by `key_columns`, not by row position, so
+    this stays correct regardless of how `compare()`'s own internal
+    merge orders its output.
+    """
+    classified = compare(baseline, candidate, key_columns=key_columns, tier1_tol=tier1_tol)
+    merged = baseline.merge(candidate, on=list(key_columns), suffixes=("_baseline", "_candidate"))
+    provenance_rows = []
+    for _, row in merged.iterrows():
+        entry = {column: row[column] for column in key_columns}
+        entry.update({f"baseline_{field}": value for field, value in row["provenance_baseline"].items()})
+        entry.update({f"candidate_{field}": value for field, value in row["provenance_candidate"].items()})
+        provenance_rows.append(entry)
+    provenance = pd.DataFrame(provenance_rows)
+    return classified.merge(provenance, on=list(key_columns))
+
+
+def classification_counts(compared, group_column="backend"):
+    """Row counts per (`group_column`, `classification`) - the graph
+    trust-bench compare's report shows alongside the full-provenance
+    table.
+    """
+    return compared.groupby([group_column, "classification"]).size().reset_index(name="count")
