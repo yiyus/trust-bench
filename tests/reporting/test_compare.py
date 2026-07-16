@@ -1,7 +1,16 @@
+import pandas as pd
+
 from trust_bench.core.provenance import EnvProvenance
 from trust_bench.core.result import RunResult, RunStatus
 from trust_bench.core.storage import append, load
-from trust_bench.reporting.compare import REGRESSION, STABLE, compare, drift_summary
+from trust_bench.reporting.compare import (
+    REGRESSION,
+    STABLE,
+    classification_counts,
+    compare,
+    compare_with_provenance,
+    drift_summary,
+)
 
 
 def _provenance(**overrides):
@@ -180,3 +189,51 @@ def test_drift_summary_groups_by_machine_fingerprint_and_backend_version(tmp_pat
     assert row["machine_fingerprint"] == "fp-x"
     assert row["backend_version"] == "1.1"
     assert row["n_drifted"] == 2
+
+
+def test_compare_with_provenance_carries_the_classification(tmp_path):
+    baseline = _write([_run_result(dist_to_opt=0.0)], tmp_path / "baseline.jsonl")
+    candidate = _write([_run_result(dist_to_opt=0.5)], tmp_path / "candidate.jsonl")
+
+    table = compare_with_provenance(baseline, candidate)
+
+    assert table["classification"].iloc[0] == REGRESSION
+
+
+def test_compare_with_provenance_includes_every_baseline_and_candidate_provenance_field(tmp_path):
+    baseline = _write(
+        [_run_result(provenance=_provenance(backend_version="1.0", blas_lapack="openblas"))],
+        tmp_path / "baseline.jsonl",
+    )
+    candidate = _write(
+        [_run_result(provenance=_provenance(backend_version="1.1", blas_lapack="mkl"))],
+        tmp_path / "candidate.jsonl",
+    )
+
+    table = compare_with_provenance(baseline, candidate)
+
+    for field in EnvProvenance.__dataclass_fields__:
+        assert f"baseline_{field}" in table.columns
+        assert f"candidate_{field}" in table.columns
+    assert table["baseline_backend_version"].iloc[0] == "1.0"
+    assert table["candidate_backend_version"].iloc[0] == "1.1"
+    assert table["baseline_blas_lapack"].iloc[0] == "openblas"
+    assert table["candidate_blas_lapack"].iloc[0] == "mkl"
+
+
+def test_classification_counts_groups_by_backend_and_classification():
+    compared = pd.DataFrame(
+        [
+            dict(backend="scipy", classification=REGRESSION),
+            dict(backend="scipy", classification=REGRESSION),
+            dict(backend="scipy", classification=STABLE),
+            dict(backend="trust-apl", classification="drift"),
+        ]
+    )
+
+    counts = classification_counts(compared)
+
+    counts = counts.set_index(["backend", "classification"])["count"]
+    assert counts[("scipy", REGRESSION)] == 2
+    assert counts[("scipy", STABLE)] == 1
+    assert counts[("trust-apl", "drift")] == 1

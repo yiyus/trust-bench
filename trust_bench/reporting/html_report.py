@@ -99,6 +99,7 @@ TIER_2_INTROS = {
 
 # Descriptive headings, distinct from the study's own filename/registry key.
 TITLES = {
+    "compare": "Longitudinal comparison: regression vs drift",
     "parity_scatter": "Parity: do backends agree?",
     "capability_frontier": "Capability frontier: where does agreement stop?",
     "capability_matrix": "Capability matrix: declared vs measured",
@@ -118,6 +119,11 @@ TITLES = {
 # outside of scalar_cost, which this report never renders) gets no
 # caption rather than a KeyError.
 CAPTIONS = {
+    "compare": (
+        "Tier-1 metric changes since the baseline run are regressions; Tier-3 "
+        "timing-only changes are drift, expected across machines and versions - "
+        "see the table's full baseline/candidate provenance for attribution."
+    ),
     "baseline": (
         "Regression and parity across backends on the canonical problem set "
         "- the floor every backend must clear."
@@ -264,6 +270,12 @@ def build_html_report(output_dir, title="trust-bench report"):
     output_dir = Path(output_dir)
     any_timing = False
     body_sections = [_hero(title)]
+
+    comparison_result = _study_section(output_dir, "compare")
+    if comparison_result is not None:
+        comparison_section, comparison_timing = comparison_result
+        any_timing = any_timing or comparison_timing
+        body_sections.append(f"<h2>Longitudinal comparison</h2>{comparison_section}")
 
     tier1_sections, tier1_timing = _render_group(output_dir, TIER_1, _headline_section)
     any_timing = any_timing or tier1_timing

@@ -15,10 +15,12 @@ from trust_bench.cli import (
     _select_studies,
     build_parser,
     main,
+    run_compare,
     run_report,
 )
+from trust_bench.core import storage
 from trust_bench.core.backend import Backend, Capabilities, MethodCapabilities
-from trust_bench.core.provenance import capture, harness_git_sha
+from trust_bench.core.provenance import EnvProvenance, capture, harness_git_sha
 from trust_bench.core.result import RunResult, RunStatus
 from trust_bench.problems import CANONICAL_PROBLEMS
 from trust_bench.reporting.html_report import TITLES, build_html_report
@@ -475,6 +477,129 @@ def test_report_command_runs_end_to_end_through_the_real_cli_entry_point(tmp_pat
         assert path.exists(), name
 
     assert (tmp_path / "report.html").exists()
+
+
+def _compare_provenance(**overrides):
+    defaults = dict(
+        backend_name="scipy",
+        backend_version="1.11.0",
+        language_runtime="CPython 3.11.0",
+        blas_lapack="openblas",
+        os="Linux 6.0",
+        cpu_model="generic",
+        cpu_count=4,
+        machine_fingerprint="fp-a",
+    )
+    defaults.update(overrides)
+    return EnvProvenance(**defaults)
+
+
+def _compare_run_result(**overrides):
+    defaults = dict(
+        problem_id="rosenbrock",
+        backend="scipy",
+        method="lm",
+        start="standard",
+        x_final=[1.0, 1.0],
+        cost_final=0.0,
+        dist_to_opt=0.0,
+        cost_gap=0.0,
+        grad_norm_final=0.0,
+        status=RunStatus.CONVERGED,
+        n_iter=5,
+        n_feval=10,
+        n_jeval=5,
+        n_heval=0,
+        trace=None,
+        timing=None,
+        config={"ftol": 1e-8},
+        provenance=_compare_provenance(),
+        harness_git_sha="abc123",
+        timestamp="2026-01-01T00:00:00Z",
+    )
+    defaults.update(overrides)
+    return RunResult(**defaults)
+
+
+def _write_compare_results(path, results):
+    for result in results:
+        storage.append(result, path)
+    return path
+
+
+def test_compare_help_is_available_and_exits_cleanly():
+    with pytest.raises(SystemExit) as excinfo:
+        build_parser().parse_args(["compare", "--help"])
+
+    assert excinfo.value.code == 0
+
+
+def test_compare_command_parses_baseline_and_candidate_paths():
+    args = build_parser().parse_args(["compare", "baseline.jsonl", "candidate.jsonl"])
+
+    assert args.baseline == "baseline.jsonl"
+    assert args.candidate == "candidate.jsonl"
+    assert args.output_dir == "reports"
+    assert args.html is False
+
+
+def test_compare_command_accepts_output_dir_and_html_flag():
+    args = build_parser().parse_args(
+        ["compare", "baseline.jsonl", "candidate.jsonl", "--output-dir", "out", "--html"]
+    )
+
+    assert args.output_dir == "out"
+    assert args.html is True
+
+
+def test_run_compare_writes_a_full_provenance_table_with_classifications(tmp_path):
+    baseline_path = _write_compare_results(tmp_path / "baseline.jsonl", [_compare_run_result(dist_to_opt=0.0)])
+    candidate_path = _write_compare_results(tmp_path / "candidate.jsonl", [_compare_run_result(dist_to_opt=0.5)])
+
+    output_dir = run_compare(baseline_path, candidate_path, tmp_path / "out")
+
+    df = pd.read_csv(output_dir / "compare.csv")
+    assert df["classification"].iloc[0] == "regression"
+    assert "baseline_machine_fingerprint" in df.columns
+    assert "candidate_machine_fingerprint" in df.columns
+
+
+def test_run_compare_writes_a_classification_counts_plot(tmp_path):
+    baseline_path = _write_compare_results(tmp_path / "baseline.jsonl", [_compare_run_result()])
+    candidate_path = _write_compare_results(tmp_path / "candidate.jsonl", [_compare_run_result()])
+
+    output_dir = run_compare(baseline_path, candidate_path, tmp_path / "out")
+
+    assert (output_dir / "compare.png").exists()
+
+
+def test_run_compare_does_not_write_an_html_bundle_by_default(tmp_path):
+    baseline_path = _write_compare_results(tmp_path / "baseline.jsonl", [_compare_run_result()])
+    candidate_path = _write_compare_results(tmp_path / "candidate.jsonl", [_compare_run_result()])
+
+    output_dir = run_compare(baseline_path, candidate_path, tmp_path / "out")
+
+    assert not (output_dir / "report.html").exists()
+
+
+def test_run_compare_writes_an_html_bundle_when_requested(tmp_path):
+    baseline_path = _write_compare_results(tmp_path / "baseline.jsonl", [_compare_run_result(dist_to_opt=0.0)])
+    candidate_path = _write_compare_results(tmp_path / "candidate.jsonl", [_compare_run_result(dist_to_opt=0.5)])
+
+    output_dir = run_compare(baseline_path, candidate_path, tmp_path / "out", html=True)
+
+    html = (output_dir / "report.html").read_text()
+    assert "regression" in html
+
+
+def test_compare_command_runs_end_to_end_through_the_real_cli_entry_point(tmp_path):
+    baseline_path = _write_compare_results(tmp_path / "baseline.jsonl", [_compare_run_result()])
+    candidate_path = _write_compare_results(tmp_path / "candidate.jsonl", [_compare_run_result()])
+
+    main(["compare", str(baseline_path), str(candidate_path), "--output-dir", str(tmp_path / "out"), "--html"])
+
+    assert (tmp_path / "out" / "compare.csv").exists()
+    assert (tmp_path / "out" / "report.html").exists()
 
 
 def test_build_html_report_renders_every_milestone_artefact_from_a_committed_fixture_set():
