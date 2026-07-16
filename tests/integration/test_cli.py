@@ -22,6 +22,7 @@ from trust_bench.core import storage
 from trust_bench.core.backend import Backend, Capabilities, MethodCapabilities
 from trust_bench.core.provenance import EnvProvenance, capture, harness_git_sha
 from trust_bench.core.result import RunResult, RunStatus
+from trust_bench.core.storage import load
 from trust_bench.problems import CANONICAL_PROBLEMS
 from trust_bench.reporting.html_report import TITLES, build_html_report
 from trust_bench.studies.large_residual import RHOS as LARGE_RESIDUAL_RHOS
@@ -459,6 +460,62 @@ def test_run_report_writes_an_html_bundle_when_requested(tmp_path):
 
     html = (tmp_path / "report.html").read_text()
     assert "Baseline correctness" in html
+
+
+def test_report_command_no_results_flag_defaults_to_false():
+    assert build_parser().parse_args(["report"]).no_results is False
+
+
+def test_report_command_can_request_no_results():
+    assert build_parser().parse_args(["report", "--no-results"]).no_results is True
+
+
+def test_run_report_writes_a_results_jsonl_file_by_default(tmp_path):
+    run_report(tmp_path, only=["baseline"])
+
+    jsonl_files = list((tmp_path / "results").glob("*.jsonl"))
+    assert len(jsonl_files) == 1
+    df = load(jsonl_files[0])
+    assert len(df) > 0
+    assert set(df["problem_id"]) & {problem.id for problem in CANONICAL_PROBLEMS}
+
+
+def test_run_report_names_the_results_file_by_the_harness_git_sha(tmp_path, monkeypatch):
+    monkeypatch.setattr("trust_bench.cli.harness_git_sha", lambda: "fixed-sha")
+
+    run_report(tmp_path, only=["baseline"])
+
+    assert (tmp_path / "results" / "fixed-sha.jsonl").exists()
+
+
+def test_run_report_appends_across_repeated_calls_without_overwriting(tmp_path, monkeypatch):
+    monkeypatch.setattr("trust_bench.cli.harness_git_sha", lambda: "fixed-sha")
+    path = tmp_path / "results" / "fixed-sha.jsonl"
+
+    run_report(tmp_path, only=["baseline"])
+    first_len = len(load(path))
+    run_report(tmp_path, only=["baseline"])
+    second_len = len(load(path))
+
+    assert second_len == first_len * 2
+
+
+def test_run_report_can_disable_results_persistence(tmp_path):
+    run_report(tmp_path, only=["baseline"], results_dir=None)
+
+    assert not (tmp_path / "results").exists()
+
+
+def test_main_report_writes_results_by_default(tmp_path):
+    main(["report", "--output-dir", str(tmp_path), "--only", "baseline"])
+
+    assert (tmp_path / "results").exists()
+
+
+def test_main_report_disables_results_persistence_when_no_results_flag_is_passed(tmp_path):
+    main(["report", "--output-dir", str(tmp_path), "--only", "baseline", "--no-results"])
+
+    assert not (tmp_path / "results").exists()
 
 
 def test_report_command_runs_end_to_end_through_the_real_cli_entry_point(tmp_path):
