@@ -3,7 +3,8 @@ from trust_bench.core.backend import Backend, Capabilities, MethodCapabilities
 from trust_bench.core.config import RunConfig
 from trust_bench.core.provenance import capture
 from trust_bench.core.result import RunResult, RunStatus
-from trust_bench.core.runner import measuring_timing, run
+from trust_bench.core.runner import measuring_timing, recording_results, run
+from trust_bench.core.storage import load
 from trust_bench.problems import rosenbrock
 
 SCIPY = SciPyBackend()
@@ -114,3 +115,30 @@ def test_measuring_timing_overrides_an_explicit_false_from_the_caller():
         )
 
     assert result.config.measure_timing is True
+
+
+def test_run_does_not_record_a_result_outside_the_recording_results_context(tmp_path):
+    path = tmp_path / "results.jsonl"
+
+    run(rosenbrock.PROBLEM, _StubBackendWithTrace(), "gd", "standard", RunConfig())
+
+    assert not path.exists()
+
+
+def test_recording_results_appends_every_run_call_inside_it_to_the_given_path(tmp_path):
+    path = tmp_path / "results.jsonl"
+
+    with recording_results(path):
+        run(rosenbrock.PROBLEM, _StubBackendWithTrace(), "gd", "standard", RunConfig())
+        run(rosenbrock.PROBLEM, _StubBackendWithTrace(), "gd", "standard", RunConfig())
+
+    df = load(path)
+    assert len(df) == 2
+    assert set(df["problem_id"]) == {rosenbrock.PROBLEM.id}
+
+
+def test_recording_results_is_a_noop_when_given_none(tmp_path):
+    with recording_results(None):
+        run(rosenbrock.PROBLEM, _StubBackendWithTrace(), "gd", "standard", RunConfig())
+
+    assert list(tmp_path.iterdir()) == []

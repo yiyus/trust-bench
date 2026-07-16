@@ -23,6 +23,20 @@ def _numeric_changed(baseline, candidate, tol):
         return baseline != candidate
 
 
+def _dedupe_latest(df, key_columns):
+    """Collapses to one row per `key_columns`, keeping the row with the
+    latest `timestamp`. `results/*.jsonl` is an append-only log where the
+    same key can be recorded more than once - a single report run can
+    revisit a key (e.g. a basin-rate sweep re-probing a start already
+    covered by the main sweep), and running `report` twice on one commit
+    appends again by design - so "this key's result" means its most
+    recent recording, not every recording ever made. Matching on a
+    non-unique key would otherwise cross-join: two duplicated rows on
+    each side of a merge produce four, not two.
+    """
+    return df.sort_values("timestamp").drop_duplicates(subset=list(key_columns), keep="last")
+
+
 def compare(baseline, candidate, key_columns=DEFAULT_KEY_COLUMNS, tier1_tol=1e-9):
     """Diff two loaded result DataFrames (`storage.load`'s output),
     matched on `key_columns`. Tier-1 metrics are expected stable (Section
@@ -33,8 +47,11 @@ def compare(baseline, candidate, key_columns=DEFAULT_KEY_COLUMNS, tier1_tol=1e-9
     `backend_version` so drifted rows can be grouped by environment. A
     Tier-1 regression on a row takes priority over drift on that same
     row: a genuine behavioural change must not be masked by expected
-    timing movement.
+    timing movement. Each side is collapsed to its latest row per key
+    before matching (see `_dedupe_latest`).
     """
+    baseline = _dedupe_latest(baseline, key_columns)
+    candidate = _dedupe_latest(candidate, key_columns)
     merged = baseline.merge(candidate, on=list(key_columns), suffixes=("_baseline", "_candidate"))
 
     rows = []
@@ -88,8 +105,13 @@ def compare_with_provenance(baseline, candidate, key_columns=DEFAULT_KEY_COLUMNS
     `drift_summary`'s grouping. Provenance is joined back onto the
     classification explicitly by `key_columns`, not by row position, so
     this stays correct regardless of how `compare()`'s own internal
-    merge orders its output.
+    merge orders its output. Both sides are deduplicated to their latest
+    row per key up front (see `_dedupe_latest`), so this second, separate
+    merge stays one-to-one with `compare()`'s own instead of compounding
+    any duplication into a cross-join.
     """
+    baseline = _dedupe_latest(baseline, key_columns)
+    candidate = _dedupe_latest(candidate, key_columns)
     classified = compare(baseline, candidate, key_columns=key_columns, tier1_tol=tier1_tol)
     merged = baseline.merge(candidate, on=list(key_columns), suffixes=("_baseline", "_candidate"))
     provenance_rows = []
