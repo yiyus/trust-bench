@@ -6,8 +6,10 @@ from trust_bench.core.backend import Backend
 from trust_bench.core.config import RunConfig
 from trust_bench.core.problem import Problem
 from trust_bench.core.result import RunResult
+from trust_bench.core.storage import append
 
 _measure_timing = contextvars.ContextVar("measure_timing", default=False)
+_recording_path = contextvars.ContextVar("recording_path", default=None)
 
 
 @contextlib.contextmanager
@@ -29,7 +31,27 @@ def measuring_timing():
         _measure_timing.reset(token)
 
 
+@contextlib.contextmanager
+def recording_results(path):
+    """Every run() call made while this context is active has its
+    RunResult appended to `path` (Section 8: results are appended to
+    results/*.jsonl, never overwritten). `path=None` is a no-op, so a
+    caller that wants persistence disabled can pass it through
+    unconditionally rather than branching around the context manager
+    itself.
+    """
+    token = _recording_path.set(path)
+    try:
+        yield
+    finally:
+        _recording_path.reset(token)
+
+
 def run(problem: Problem, backend: Backend, method: str, start: str, config: RunConfig) -> RunResult:
     if _measure_timing.get() and not config.measure_timing:
         config = dataclasses.replace(config, measure_timing=True)
-    return backend.solve(problem, method, start, config)
+    result = backend.solve(problem, method, start, config)
+    path = _recording_path.get()
+    if path is not None:
+        append(result, path)
+    return result

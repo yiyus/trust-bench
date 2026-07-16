@@ -237,3 +237,49 @@ def test_classification_counts_groups_by_backend_and_classification():
     assert counts[("scipy", REGRESSION)] == 2
     assert counts[("scipy", STABLE)] == 1
     assert counts[("trust-apl", "drift")] == 1
+
+
+def test_compare_collapses_duplicate_keyed_rows_to_the_latest_before_classifying(tmp_path):
+    # results/*.jsonl is an append-only log where the same key can be
+    # recorded more than once (a basin-rate sweep re-probing a start
+    # already covered by the main sweep; report run twice on one
+    # commit) - a naive key-based merge would cross-join duplicates on
+    # each side instead of comparing "the" result for that key.
+    baseline = _write(
+        [
+            _run_result(dist_to_opt=0.0, timestamp="2026-01-01T00:00:00Z"),
+            _run_result(dist_to_opt=0.3, timestamp="2026-01-01T00:00:01Z"),
+        ],
+        tmp_path / "baseline.jsonl",
+    )
+    candidate = _write([_run_result(dist_to_opt=0.3)], tmp_path / "candidate.jsonl")
+
+    compared = compare(baseline, candidate)
+
+    assert len(compared) == 1
+    assert compared["classification"].iloc[0] == STABLE
+
+
+def test_compare_with_provenance_also_collapses_duplicate_keyed_rows(tmp_path):
+    # Two duplicate-keyed rows on each side would cross-join to 4 in
+    # compare() alone, then 4x4=16 in compare_with_provenance's own
+    # second merge, without deduplication on both sides.
+    baseline = _write(
+        [
+            _run_result(dist_to_opt=0.0, timestamp="2026-01-01T00:00:00Z"),
+            _run_result(dist_to_opt=0.3, timestamp="2026-01-01T00:00:01Z"),
+        ],
+        tmp_path / "baseline.jsonl",
+    )
+    candidate = _write(
+        [
+            _run_result(dist_to_opt=0.3, timestamp="2026-01-01T00:00:00Z"),
+            _run_result(dist_to_opt=0.3, timestamp="2026-01-01T00:00:01Z"),
+        ],
+        tmp_path / "candidate.jsonl",
+    )
+
+    table = compare_with_provenance(baseline, candidate)
+
+    assert len(table) == 1
+    assert table["classification"].iloc[0] == STABLE

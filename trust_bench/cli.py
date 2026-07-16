@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pandas as pd
 
-from trust_bench.backends import BACKENDS
 from trust_bench.backends.apl_backend import APLBackend
 from trust_bench.backends.scipy_backend import SciPyBackend
 from trust_bench.core import storage
-from trust_bench.core.runner import measuring_timing
+from trust_bench.core.provenance import harness_git_sha
+from trust_bench.core.runner import measuring_timing, recording_results
 from trust_bench.reporting import compare as compare_module
 from trust_bench.reporting.capability_matrix import derive_matrix
 from trust_bench.reporting.cross_study import frontier_panels, parity_frame
@@ -242,19 +242,18 @@ SLOW_STUDIES = frozenset({"dimensionality", "capability_frontier"})
 # scipy-vs-trust-apl pivot, unlike capability_frontier's one-line-per-
 # backend panels, which work fine with just one); auto-excluded from
 # the default "run everything" selection when fewer than two backends
-# are selected, matching a plain `trust-bench report`'s scipy-only
-# default, which must keep working without dyalogscript installed.
-# Naming it explicitly via --only still runs it, where a clear error
-# (from parity_frame's own backend-count check) is the right response
-# to an impossible request, rather than a silent skip.
+# are selected, matching a plain `trust-bench report`'s single-backend
+# default. Naming it explicitly via --only still runs it, where a clear
+# error (from parity_frame's own backend-count check) is the right
+# response to an impossible request, rather than a silent skip.
 MULTI_BACKEND_STUDIES = frozenset({"parity_scatter"})
 
 
-def _select_studies(only=None, skip=None, skip_slow=False, n_backends=1):
+def _select_studies(only=None, skip=None, skip_slow=True, n_backends=1):
     selected = set(only) if only is not None else set(STUDIES)
     if skip is not None:
         selected -= set(skip)
-    if skip_slow:
+    if only is None and skip_slow:
         selected -= SLOW_STUDIES
     if only is None and n_backends < 2:
         selected -= MULTI_BACKEND_STUDIES
@@ -265,17 +264,62 @@ def _select_studies(only=None, skip=None, skip_slow=False, n_backends=1):
     return selected
 
 
-def _select_backends(names=None):
-    if names is None:
-        return BACKENDS
+def _select_backends(use_trust=True, use_scipy=False):
+    selected = []
+    if use_trust:
+        selected.append(AVAILABLE_BACKENDS["trust-apl"])
+    if use_scipy:
+        selected.append(AVAILABLE_BACKENDS["scipy"])
+    if not selected:
+        raise ValueError("no backend selected: enable trust-apl (default) or pass use_scipy/--scipy")
+    return selected
 
-    unknown = set(names) - set(AVAILABLE_BACKENDS)
-    if unknown:
-        raise ValueError(f"Unknown backend/backends: {', '.join(sorted(unknown))}")
-    return [AVAILABLE_BACKENDS[name] for name in names]
+
+def _load_results_files(paths, description):
+    if not paths:
+        raise ValueError(f"no results/*.jsonl found under {description}")
+    return pd.concat([storage.load(path) for path in paths], ignore_index=True)
 
 
-def run_report(output_dir, only=None, skip=None, skip_slow=False, html=False, backends=None):
+def _load_results_dir(directory):
+    """Pools every `results/*.jsonl` file under a prior report's own
+    output directory into one DataFrame - the unit `report`'s baseline
+    directories and `compare`'s own two directory arguments are both
+    expressed in. Assumes the default `results_dir="results"` layout,
+    since a baseline is an independent directory whose own `results_dir`
+    (if it used a non-default one) isn't recorded anywhere for a caller
+    to look up.
+    """
+    directory = Path(directory)
+    return _load_results_files(sorted((directory / "results").glob("*.jsonl")), directory)
+
+
+def _write_compare_artefacts(baseline, candidate, output_dir):
+    """Classifies `candidate` against `baseline` (Section 8) and writes
+    compare.csv (full baseline/candidate provenance) and compare.png
+    (classification counts per backend) - shared by `run_report`'s
+    baseline-directory comparison and `run_compare`.
+    """
+    table = compare_module.compare_with_provenance(baseline, candidate)
+    save_table(table, output_dir / "compare.csv")
+
+    counts = compare_module.classification_counts(table)
+    fig = plot_metric_by_category(counts, category="backend", y="count", group="classification")
+    save_figure(fig, output_dir / "compare.png")
+    return table
+
+
+def run_report(
+    output_dir,
+    only=None,
+    skip=None,
+    skip_slow=True,
+    html=True,
+    use_trust=True,
+    use_scipy=False,
+    results_dir="results",
+    baselines=None,
+):
     """Runs every selected study, writing each one's artefacts to
     output_dir. A study whose selected backend(s) have a known,
     permanent coverage gap (e.g. trust-apl has no evaluator for
@@ -285,14 +329,33 @@ def run_report(output_dir, only=None, skip=None, skip_slow=False, html=False, ba
     `skipped` mapping instead of aborting. If every selected study fails
     this way there is nothing to report at all, a genuine failure, so
     that case still raises.
+
+    Every RunResult produced along the way is also appended to
+    `{output_dir}/{results_dir}/{harness_git_sha()}.jsonl` (Section 8),
+    the file `trust-bench compare` diffs two of. `results_dir=None`
+    disables this.
+
+    `baselines`, when given, is a list of prior report output
+    directories: this run's own results are classified against their
+    pooled `results/*.jsonl` (compare.csv/compare.png, folded into
+    report.html when html=True), the everyday follow-up now that
+    `compare` exists. Requires results persistence to be enabled, since
+    there is otherwise nothing of this run's own to compare.
     """
-    selected_backends = _select_backends(backends)
+    if baselines and results_dir is None:
+        raise ValueError("comparing against a baseline requires results persistence (results_dir must not be None)")
+
+    selected_backends = _select_backends(use_trust=use_trust, use_scipy=use_scipy)
     selected = _select_studies(only=only, skip=skip, skip_slow=skip_slow, n_backends=len(selected_backends))
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    results_path = output_dir / results_dir / f"{harness_git_sha()}.jsonl" if results_dir is not None else None
+    if results_path is not None:
+        results_path.parent.mkdir(parents=True, exist_ok=True)
+
     skipped = {}
-    with measuring_timing():
+    with measuring_timing(), recording_results(results_path):
         for name in sorted(selected):
             try:
                 STUDIES[name](output_dir, selected_backends)
@@ -303,33 +366,36 @@ def run_report(output_dir, only=None, skip=None, skip_slow=False, html=False, ba
         reasons = "; ".join(f"{name}: {message}" for name, message in sorted(skipped.items()))
         raise ValueError(f"every selected study failed - {reasons}")
 
+    if baselines:
+        baseline_df = pd.concat([_load_results_dir(directory) for directory in baselines], ignore_index=True)
+        # Loaded from results_path.parent, not _load_results_dir(output_dir):
+        # this run's own results_dir may not be the "results" default
+        # _load_results_dir assumes for an arbitrary baseline directory.
+        candidate_df = _load_results_files(sorted(results_path.parent.glob("*.jsonl")), results_path.parent)
+        _write_compare_artefacts(baseline_df, candidate_df, output_dir)
+
     if html:
         save_html_report(build_html_report(output_dir), output_dir / "report.html")
 
     return output_dir, skipped
 
 
-def run_compare(baseline_path, candidate_path, output_dir, html=False):
-    """Loads two stored result sets and writes the longitudinal
-    comparison (Section 8): compare.csv (classification with full
-    baseline/candidate provenance) and compare.png (classification
-    counts per backend). With html=True, folds the same artefacts into
-    report.html via the same build_html_report/save_html_report path
-    `trust-bench report --html` uses, so a comparison run adds to
-    whatever report already exists in output_dir instead of building a
-    second one.
+def run_compare(baseline_dir, candidate_dir, output_dir, html=False):
+    """Loads two report output directories (each's pooled
+    `results/*.jsonl`) and writes the longitudinal comparison (Section
+    8): compare.csv (classification with full baseline/candidate
+    provenance) and compare.png (classification counts per backend).
+    With html=True, folds the same artefacts into report.html via the
+    same build_html_report/save_html_report path `run_report` uses, so
+    a comparison run adds to whatever report already exists in
+    output_dir instead of building a second one.
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    baseline = storage.load(baseline_path)
-    candidate = storage.load(candidate_path)
-    table = compare_module.compare_with_provenance(baseline, candidate)
-    save_table(table, output_dir / "compare.csv")
-
-    counts = compare_module.classification_counts(table)
-    fig = plot_metric_by_category(counts, category="backend", y="count", group="classification")
-    save_figure(fig, output_dir / "compare.png")
+    baseline = _load_results_dir(baseline_dir)
+    candidate = _load_results_dir(candidate_dir)
+    _write_compare_artefacts(baseline, candidate, output_dir)
 
     if html:
         save_html_report(build_html_report(output_dir), output_dir / "report.html")
@@ -354,6 +420,15 @@ def build_parser():
         ),
     )
     report_parser.add_argument(
+        "baselines",
+        nargs="*",
+        metavar="BASELINE_DIR",
+        help=(
+            "Prior report output directories to compare this run's results "
+            "against (folds a Longitudinal comparison section into the report)."
+        ),
+    )
+    report_parser.add_argument(
         "--output-dir",
         default="reports",
         help="Directory to write the generated artefacts to (default: %(default)s).",
@@ -374,35 +449,46 @@ def build_parser():
         help="Run every study/artefact except these.",
     )
     report_parser.add_argument(
-        "--skip-slow",
+        "--full",
         action="store_true",
-        help=f"Skip studies that take noticeably longer to run ({', '.join(sorted(SLOW_STUDIES))}).",
+        help=(
+            f"Also run studies that take noticeably longer to run "
+            f"({', '.join(sorted(SLOW_STUDIES))}); skipped by default."
+        ),
     )
     report_parser.add_argument(
-        "--backends",
-        nargs="+",
-        choices=sorted(AVAILABLE_BACKENDS),
-        metavar="BACKEND",
-        help="Run against these backends instead of the default (scipy).",
+        "--scipy",
+        action="store_true",
+        help="Also run the scipy backend (off by default; trust-bench benchmarks trust-apl by default).",
     )
     report_parser.add_argument(
-        "--html",
+        "--no-trust",
         action="store_true",
-        help="Also write report.html, bundling every table and plot into one self-contained page.",
+        help="Turn off the trust-apl backend (on by default).",
+    )
+    report_parser.add_argument(
+        "--no-html",
+        action="store_true",
+        help="Don't write report.html (written by default).",
+    )
+    report_parser.add_argument(
+        "--no-results",
+        action="store_true",
+        help="Don't append this run's results to results/*.jsonl (appended by default).",
     )
 
     compare_parser = subparsers.add_parser(
         "compare",
-        help="Diff two stored result sets and classify changes as regressions or drift.",
+        help="Diff two report output directories and classify changes as regressions or drift.",
         description=(
-            "Loads two results/*.jsonl files and classifies each matched run: a "
-            "changed Tier-1 metric is a regression, a changed Tier-3 timing with no "
-            "Tier-1 change is drift. Reports both classifications with full "
-            "baseline/candidate provenance."
+            "Pools each directory's results/*.jsonl and classifies each matched "
+            "run: a changed Tier-1 metric is a regression, a changed Tier-3 timing "
+            "with no Tier-1 change is drift. Reports both classifications with "
+            "full baseline/candidate provenance."
         ),
     )
-    compare_parser.add_argument("baseline", help="Path to the baseline results/*.jsonl file.")
-    compare_parser.add_argument("candidate", help="Path to the candidate results/*.jsonl file.")
+    compare_parser.add_argument("baseline_dir", help="Prior report output directory to use as the baseline.")
+    compare_parser.add_argument("candidate_dir", help="Report output directory to use as the candidate.")
     compare_parser.add_argument(
         "--output-dir",
         default="reports",
@@ -423,15 +509,18 @@ def main(argv=None):
             args.output_dir,
             only=args.only,
             skip=args.skip,
-            skip_slow=args.skip_slow,
-            html=args.html,
-            backends=args.backends,
+            skip_slow=not args.full,
+            html=not args.no_html,
+            use_trust=not args.no_trust,
+            use_scipy=args.scipy,
+            results_dir=None if args.no_results else "results",
+            baselines=args.baselines,
         )
         for name, message in sorted(skipped.items()):
             print(f"Skipped {name}: {message}", file=sys.stderr)
         print(f"Report artefacts written to {output_dir}")
     elif args.command == "compare":
-        output_dir = run_compare(args.baseline, args.candidate, args.output_dir, html=args.html)
+        output_dir = run_compare(args.baseline_dir, args.candidate_dir, args.output_dir, html=args.html)
         print(f"Comparison artefacts written to {output_dir}")
 
 

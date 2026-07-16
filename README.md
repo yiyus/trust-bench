@@ -24,23 +24,42 @@ backend has no extra dependencies.
 
 ## Usage
 
-Run the full report (SciPy only):
+Run a report (trust-apl only, skipping the slow studies, writing
+`report.html` and appending to `results/*.jsonl` - all on by default):
 
 ```
-trust-bench report --output-dir reports --html
+trust-bench report --output-dir reports
 ```
 
-Include the APL backend:
+Also run SciPy, for a side-by-side comparison:
 
 ```
-trust-bench report --output-dir reports --html --backends scipy trust-apl
+trust-bench report --output-dir reports --scipy
 ```
 
-Run a subset of studies, or skip the slow ones:
+Run the complete report, including the slow studies:
+
+```
+trust-bench report --output-dir reports --full
+```
+
+Run a subset of studies:
 
 ```
 trust-bench report --only baseline scaling
-trust-bench report --skip-slow
+```
+
+Check for regressions or drift against a prior report's own output
+directory (folds a "Longitudinal comparison" section into `report.html`):
+
+```
+trust-bench report --output-dir reports-new reports-old
+```
+
+Diff two existing report directories directly, without rerunning studies:
+
+```
+trust-bench compare reports-old reports-new --html
 ```
 
 ## Tests

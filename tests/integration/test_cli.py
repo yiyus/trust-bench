@@ -5,7 +5,6 @@ import matplotlib
 import pandas as pd
 import pytest
 
-from trust_bench.backends import BACKENDS
 from trust_bench.cli import (
     AVAILABLE_BACKENDS,
     MULTI_BACKEND_STUDIES,
@@ -197,13 +196,6 @@ def test_report_command_can_skip_specific_studies():
     assert args.skip == ["dimensionality"]
 
 
-def test_report_command_can_skip_slow_studies():
-    args = build_parser().parse_args(["report", "--skip-slow"])
-
-    assert args.skip_slow is True
-    assert build_parser().parse_args(["report"]).skip_slow is False
-
-
 def test_only_and_skip_are_mutually_exclusive():
     with pytest.raises(SystemExit):
         build_parser().parse_args(["report", "--only", "baseline", "--skip", "scaling"])
@@ -214,30 +206,50 @@ def test_unknown_study_name_is_rejected_by_argument_parsing():
         build_parser().parse_args(["report", "--only", "not-a-real-study"])
 
 
-def test_report_command_can_select_specific_backends():
-    args = build_parser().parse_args(["report", "--backends", "scipy"])
-
-    assert args.backends == ["scipy"]
+def test_report_command_full_flag_defaults_to_false():
+    assert build_parser().parse_args(["report"]).full is False
 
 
-def test_report_command_backends_defaults_to_none():
-    assert build_parser().parse_args(["report"]).backends is None
+def test_report_command_can_request_the_full_report():
+    assert build_parser().parse_args(["report", "--full"]).full is True
 
 
-def test_unknown_backend_name_is_rejected_by_argument_parsing():
-    with pytest.raises(SystemExit):
-        build_parser().parse_args(["report", "--backends", "not-a-real-backend"])
+def test_report_command_scipy_flag_defaults_to_false():
+    assert build_parser().parse_args(["report"]).scipy is False
 
 
-def test_select_studies_defaults_to_every_registered_study_except_parity_scatter():
-    # parity_scatter is a two-backend comparison; the default n_backends=1
-    # (matching a plain `trust-bench report`'s scipy-only default) excludes
-    # it automatically, per MULTI_BACKEND_STUDIES.
-    assert _select_studies() == set(STUDIES) - MULTI_BACKEND_STUDIES
+def test_report_command_can_request_scipy():
+    assert build_parser().parse_args(["report", "--scipy"]).scipy is True
+
+
+def test_report_command_no_trust_flag_defaults_to_false():
+    assert build_parser().parse_args(["report"]).no_trust is False
+
+
+def test_report_command_can_disable_trust():
+    assert build_parser().parse_args(["report", "--no-trust"]).no_trust is True
+
+
+def test_report_command_baselines_default_to_an_empty_list():
+    assert build_parser().parse_args(["report"]).baselines == []
+
+
+def test_report_command_accepts_baseline_directories():
+    args = build_parser().parse_args(["report", "old-reports", "other-reports"])
+
+    assert args.baselines == ["old-reports", "other-reports"]
+
+
+def test_select_studies_defaults_to_every_registered_study_except_slow_and_multi_backend_ones():
+    # parity_scatter needs two backends (excluded by the default single
+    # backend, per MULTI_BACKEND_STUDIES); the slow studies are skipped
+    # by default now that `report` is expected to run frequently, feeding
+    # the longitudinal ledger - --full opts back into them.
+    assert _select_studies() == set(STUDIES) - MULTI_BACKEND_STUDIES - SLOW_STUDIES
 
 
 def test_select_studies_includes_parity_scatter_when_two_backends_are_selected():
-    assert _select_studies(n_backends=2) == set(STUDIES)
+    assert _select_studies(skip_slow=False, n_backends=2) == set(STUDIES)
 
 
 def test_select_studies_only_still_selects_parity_scatter_with_one_backend():
@@ -248,12 +260,21 @@ def test_select_studies_only_still_selects_parity_scatter_with_one_backend():
     assert _select_studies(only=["parity_scatter"]) == {"parity_scatter"}
 
 
+def test_select_studies_only_still_selects_a_slow_study_explicitly():
+    # Same carve-out as parity_scatter above, for the default skip-slow
+    # behaviour: naming a slow study via --only still runs it.
+    assert _select_studies(only=["dimensionality"]) == {"dimensionality"}
+
+
 def test_select_studies_only_returns_exactly_the_requested_set():
     assert _select_studies(only=["baseline", "scaling"]) == {"baseline", "scaling"}
 
 
-def test_select_studies_skip_removes_from_the_full_set():
-    assert _select_studies(skip=["dimensionality"]) == set(STUDIES) - {"dimensionality"} - MULTI_BACKEND_STUDIES
+def test_select_studies_skip_removes_from_the_default_set():
+    assert (
+        _select_studies(skip=["large_residual"])
+        == set(STUDIES) - {"large_residual"} - MULTI_BACKEND_STUDIES - SLOW_STUDIES
+    )
 
 
 def test_select_studies_rejects_an_unknown_name_when_called_directly():
@@ -265,25 +286,25 @@ def test_select_studies_rejects_an_unknown_name_when_called_directly():
         _select_studies(only=["not-a-real-study"])
 
 
-def test_select_studies_skip_slow_removes_the_slow_set():
-    assert _select_studies(skip_slow=True, n_backends=2) == set(STUDIES) - SLOW_STUDIES
+def test_select_studies_full_report_includes_the_slow_set():
+    assert _select_studies(skip_slow=False, n_backends=2) == set(STUDIES)
 
 
-def test_select_backends_defaults_to_the_production_backends_list():
-    assert _select_backends() == BACKENDS
+def test_select_backends_defaults_to_trust_apl_only():
+    assert [b.name for b in _select_backends()] == ["trust-apl"]
 
 
-def test_select_backends_only_returns_the_requested_backends():
-    assert [b.name for b in _select_backends(["scipy"])] == ["scipy"]
+def test_select_backends_can_add_scipy():
+    assert {b.name for b in _select_backends(use_scipy=True)} == {"trust-apl", "scipy"}
 
 
-def test_select_backends_rejects_an_unknown_name_when_called_directly():
-    # argparse's choices= already rejects an unknown name at the CLI
-    # boundary (test_unknown_backend_name_is_rejected_by_argument_parsing
-    # above); this is the same guard for direct, non-CLI callers of
-    # _select_backends/run_report.
-    with pytest.raises(ValueError):
-        _select_backends(["not-a-real-backend"])
+def test_select_backends_can_disable_trust():
+    assert [b.name for b in _select_backends(use_trust=False, use_scipy=True)] == ["scipy"]
+
+
+def test_select_backends_raises_when_nothing_is_selected():
+    with pytest.raises(ValueError, match="no backend"):
+        _select_backends(use_trust=False, use_scipy=False)
 
 
 def test_available_backends_is_keyed_by_each_backends_own_name():
@@ -292,21 +313,21 @@ def test_available_backends_is_keyed_by_each_backends_own_name():
 
 
 def test_run_report_writes_only_the_selected_studys_artefact(tmp_path):
-    run_report(tmp_path, only=["baseline"])
+    run_report(tmp_path, only=["baseline"], use_trust=False, use_scipy=True, html=False)
 
     assert (tmp_path / "baseline.csv").exists()
     assert not (tmp_path / "scaling.csv").exists()
 
 
-def test_run_report_uses_the_default_backend_when_none_selected(tmp_path):
-    run_report(tmp_path, only=["baseline"])
+def test_run_report_can_select_scipy_only(tmp_path):
+    run_report(tmp_path, only=["baseline"], use_trust=False, use_scipy=True, html=False)
 
     df = pd.read_csv(tmp_path / "baseline.csv")
     assert set(df["backend"]) == {"scipy"}
 
 
 def test_run_report_writes_baselines_basin_of_attraction_rate_table(tmp_path):
-    run_report(tmp_path, only=["baseline"])
+    run_report(tmp_path, only=["baseline"], use_trust=False, use_scipy=True, html=False)
 
     df = pd.read_csv(tmp_path / "baseline_basin_rates.csv")
     assert set(df.columns) >= {"problem_id", "backend", "basin_rate"}
@@ -315,7 +336,7 @@ def test_run_report_writes_baselines_basin_of_attraction_rate_table(tmp_path):
 
 
 def test_run_report_writes_large_residuals_basin_of_attraction_rate_table(tmp_path):
-    run_report(tmp_path, only=["large_residual"])
+    run_report(tmp_path, only=["large_residual"], use_trust=False, use_scipy=True, html=False)
 
     df = pd.read_csv(tmp_path / "large_residual_basin_rates.csv")
     assert set(df.columns) >= {"rho", "backend", "basin_rate"}
@@ -325,8 +346,8 @@ def test_run_report_writes_large_residuals_basin_of_attraction_rate_table(tmp_pa
 
 @pytest.mark.slow
 @pytest.mark.skipif(shutil.which("dyalogscript") is None, reason="Dyalog APL is not installed")
-def test_run_report_uses_the_selected_backends(tmp_path):
-    run_report(tmp_path, only=["baseline"], backends=["trust-apl"])
+def test_run_report_uses_trust_apl_by_default(tmp_path):
+    run_report(tmp_path, only=["baseline"], html=False)
 
     df = pd.read_csv(tmp_path / "baseline.csv")
     assert set(df["backend"]) == {"trust-apl"}
@@ -335,7 +356,7 @@ def test_run_report_uses_the_selected_backends(tmp_path):
 @pytest.mark.slow
 @pytest.mark.skipif(shutil.which("dyalogscript") is None, reason="Dyalog APL is not installed")
 def test_run_report_writes_the_parity_scatter_only_with_two_backends(tmp_path):
-    run_report(tmp_path, only=["parity_scatter"], backends=["scipy", "trust-apl"])
+    run_report(tmp_path, only=["parity_scatter"], use_scipy=True, html=False)
 
     df = pd.read_csv(tmp_path / "parity_scatter.csv")
     assert {"dist_to_opt_scipy", "dist_to_opt_trust-apl", "converged", "study"} <= set(df.columns)
@@ -345,7 +366,7 @@ def test_run_report_writes_the_parity_scatter_only_with_two_backends(tmp_path):
 
 def test_run_report_raises_clearly_when_parity_scatter_is_explicitly_selected_with_one_backend(tmp_path):
     with pytest.raises(ValueError, match="two backends"):
-        run_report(tmp_path, only=["parity_scatter"])
+        run_report(tmp_path, only=["parity_scatter"], html=False)
 
 
 def test_run_report_measures_real_timing_for_every_study_it_runs(tmp_path, monkeypatch):
@@ -363,29 +384,30 @@ def test_run_report_measures_real_timing_for_every_study_it_runs(tmp_path, monke
 
     monkeypatch.setitem(STUDIES, "baseline", spy_study)
 
-    run_report(tmp_path, only=["baseline"])
+    run_report(tmp_path, only=["baseline"], use_trust=False, use_scipy=True, html=False)
 
     assert observed["measuring"] is True
 
 
 def test_run_report_raises_clearly_when_a_study_does_not_support_the_selected_backend(tmp_path, monkeypatch):
     stub = _AlwaysErrorsBackend()
-    monkeypatch.setitem(AVAILABLE_BACKENDS, stub.name, stub)
+    monkeypatch.setitem(AVAILABLE_BACKENDS, "scipy", stub)
 
     with pytest.raises(ValueError, match=stub.name):
-        run_report(tmp_path, only=["baseline"], backends=[stub.name])
+        run_report(tmp_path, only=["baseline"], use_trust=False, use_scipy=True, html=False)
 
 
 def test_run_report_skips_a_study_with_a_known_backend_coverage_gap_instead_of_crashing(tmp_path, monkeypatch):
     # trust-apl has no evaluator for scalar_cost's Jacobian-free scalar
     # objectives at all: a known, permanent gap, not a bug - the report
     # must still produce every other artefact instead of aborting
-    # entirely (the exact crash `trust-bench report --backends trust-apl
-    # scipy` hits today).
+    # entirely.
     stub = _LmOnlyBackend()
-    monkeypatch.setitem(AVAILABLE_BACKENDS, stub.name, stub)
+    monkeypatch.setitem(AVAILABLE_BACKENDS, "scipy", stub)
 
-    output_dir, skipped = run_report(tmp_path, only=["baseline", "scalar_cost"], backends=[stub.name])
+    output_dir, skipped = run_report(
+        tmp_path, only=["baseline", "scalar_cost"], use_trust=False, use_scipy=True, html=False
+    )
 
     assert (output_dir / "baseline.csv").exists()
     assert not (output_dir / "scalar_cost.csv").exists()
@@ -408,7 +430,7 @@ def test_run_report_does_not_absorb_an_unrelated_value_error_as_a_coverage_gap(t
     monkeypatch.setitem(STUDIES, "baseline", _broken_writer)
 
     with pytest.raises(ValueError, match="unrelated bug"):
-        run_report(tmp_path, only=["baseline", "large_residual"])
+        run_report(tmp_path, only=["baseline", "large_residual"], use_trust=False, use_scipy=True)
 
 
 def test_main_prints_a_note_for_each_skipped_study(monkeypatch, tmp_path, capsys):
@@ -435,31 +457,33 @@ def test_run_report_with_trust_apl_and_scipy_does_not_crash_on_scalar_costs_know
     # affected study plus one unaffected study are selected - the bug
     # is specific to scalar_cost's own coverage gap, not to running the
     # rest of the report alongside it.
-    output_dir, skipped = run_report(tmp_path, only=["scalar_cost", "baseline"], backends=["trust-apl", "scipy"])
+    output_dir, skipped = run_report(
+        tmp_path, only=["scalar_cost", "baseline"], use_scipy=True, html=False
+    )
 
     assert "scalar_cost" in skipped
     assert (output_dir / "baseline.csv").exists()
 
 
-def test_report_command_html_flag_defaults_to_false():
-    assert build_parser().parse_args(["report"]).html is False
+def test_report_command_no_html_flag_defaults_to_false():
+    assert build_parser().parse_args(["report"]).no_html is False
 
 
-def test_report_command_can_request_an_html_bundle():
-    assert build_parser().parse_args(["report", "--html"]).html is True
+def test_report_command_can_request_no_html():
+    assert build_parser().parse_args(["report", "--no-html"]).no_html is True
 
 
-def test_run_report_does_not_write_an_html_bundle_by_default(tmp_path):
-    run_report(tmp_path, only=["baseline"])
-
-    assert not (tmp_path / "report.html").exists()
-
-
-def test_run_report_writes_an_html_bundle_when_requested(tmp_path):
-    run_report(tmp_path, only=["baseline"], html=True)
+def test_run_report_writes_an_html_bundle_by_default(tmp_path):
+    run_report(tmp_path, only=["baseline"], use_trust=False, use_scipy=True)
 
     html = (tmp_path / "report.html").read_text()
     assert "Baseline correctness" in html
+
+
+def test_run_report_can_disable_the_html_bundle(tmp_path):
+    run_report(tmp_path, only=["baseline"], use_trust=False, use_scipy=True, html=False)
+
+    assert not (tmp_path / "report.html").exists()
 
 
 def test_report_command_no_results_flag_defaults_to_false():
@@ -471,7 +495,7 @@ def test_report_command_can_request_no_results():
 
 
 def test_run_report_writes_a_results_jsonl_file_by_default(tmp_path):
-    run_report(tmp_path, only=["baseline"])
+    run_report(tmp_path, only=["baseline"], use_trust=False, use_scipy=True, html=False)
 
     jsonl_files = list((tmp_path / "results").glob("*.jsonl"))
     assert len(jsonl_files) == 1
@@ -483,7 +507,7 @@ def test_run_report_writes_a_results_jsonl_file_by_default(tmp_path):
 def test_run_report_names_the_results_file_by_the_harness_git_sha(tmp_path, monkeypatch):
     monkeypatch.setattr("trust_bench.cli.harness_git_sha", lambda: "fixed-sha")
 
-    run_report(tmp_path, only=["baseline"])
+    run_report(tmp_path, only=["baseline"], use_trust=False, use_scipy=True, html=False)
 
     assert (tmp_path / "results" / "fixed-sha.jsonl").exists()
 
@@ -492,40 +516,215 @@ def test_run_report_appends_across_repeated_calls_without_overwriting(tmp_path, 
     monkeypatch.setattr("trust_bench.cli.harness_git_sha", lambda: "fixed-sha")
     path = tmp_path / "results" / "fixed-sha.jsonl"
 
-    run_report(tmp_path, only=["baseline"])
+    run_report(tmp_path, only=["baseline"], use_trust=False, use_scipy=True, html=False)
     first_len = len(load(path))
-    run_report(tmp_path, only=["baseline"])
+    run_report(tmp_path, only=["baseline"], use_trust=False, use_scipy=True, html=False)
     second_len = len(load(path))
 
     assert second_len == first_len * 2
 
 
 def test_run_report_can_disable_results_persistence(tmp_path):
-    run_report(tmp_path, only=["baseline"], results_dir=None)
+    run_report(tmp_path, only=["baseline"], use_trust=False, use_scipy=True, html=False, results_dir=None)
 
     assert not (tmp_path / "results").exists()
 
 
 def test_main_report_writes_results_by_default(tmp_path):
-    main(["report", "--output-dir", str(tmp_path), "--only", "baseline"])
+    main(["report", "--output-dir", str(tmp_path), "--only", "baseline", "--no-trust", "--scipy"])
 
     assert (tmp_path / "results").exists()
 
 
 def test_main_report_disables_results_persistence_when_no_results_flag_is_passed(tmp_path):
-    main(["report", "--output-dir", str(tmp_path), "--only", "baseline", "--no-results"])
+    main(
+        [
+            "report",
+            "--output-dir",
+            str(tmp_path),
+            "--only",
+            "baseline",
+            "--no-trust",
+            "--scipy",
+            "--no-results",
+        ]
+    )
 
     assert not (tmp_path / "results").exists()
+
+
+def test_main_report_wires_every_new_flag_through_to_run_report(monkeypatch, tmp_path):
+    captured = {}
+
+    def spy_run_report(output_dir, **kwargs):
+        captured["output_dir"] = output_dir
+        captured.update(kwargs)
+        return output_dir, {}
+
+    monkeypatch.setattr("trust_bench.cli.run_report", spy_run_report)
+
+    main(
+        [
+            "report",
+            "some-baseline",
+            "--output-dir",
+            str(tmp_path),
+            "--full",
+            "--scipy",
+            "--no-trust",
+            "--no-html",
+            "--no-results",
+        ]
+    )
+
+    assert captured["skip_slow"] is False
+    assert captured["use_scipy"] is True
+    assert captured["use_trust"] is False
+    assert captured["html"] is False
+    assert captured["results_dir"] is None
+    assert captured["baselines"] == ["some-baseline"]
+
+
+def test_run_report_writes_a_comparison_against_a_given_baseline_directory(tmp_path):
+    baseline_dir = tmp_path / "baseline"
+    candidate_dir = tmp_path / "candidate"
+    run_report(baseline_dir, only=["baseline"], use_trust=False, use_scipy=True, html=False)
+
+    run_report(
+        candidate_dir, only=["baseline"], use_trust=False, use_scipy=True, html=False, baselines=[baseline_dir]
+    )
+
+    assert (candidate_dir / "compare.csv").exists()
+    assert (candidate_dir / "compare.png").exists()
+
+
+def test_run_report_folds_the_comparison_into_the_html_report_when_a_baseline_is_given(tmp_path):
+    baseline_dir = tmp_path / "baseline"
+    candidate_dir = tmp_path / "candidate"
+    run_report(baseline_dir, only=["baseline"], use_trust=False, use_scipy=True, html=False)
+
+    run_report(candidate_dir, only=["baseline"], use_trust=False, use_scipy=True, baselines=[baseline_dir])
+
+    html = (candidate_dir / "report.html").read_text()
+    assert "Longitudinal comparison" in html
+
+
+# baseline's own registered problems don't all share the same number of
+# starts (rosenbrock alone has "standard" and "far") - one comparison row
+# per distinct (problem_id, start) pair, not one per problem.
+_BASELINE_STANDARD_STARTS = sum(len(problem.starts) for problem in CANONICAL_PROBLEMS)
+
+
+def test_run_report_pools_multiple_baseline_directories(tmp_path):
+    baseline_a = tmp_path / "baseline_a"
+    baseline_b = tmp_path / "baseline_b"
+    candidate_dir = tmp_path / "candidate"
+    run_report(baseline_a, only=["baseline"], use_trust=False, use_scipy=True, html=False)
+    run_report(baseline_b, only=["baseline"], use_trust=False, use_scipy=True, html=False)
+
+    run_report(
+        candidate_dir,
+        only=["baseline"],
+        use_trust=False,
+        use_scipy=True,
+        html=False,
+        baselines=[baseline_a, baseline_b],
+    )
+
+    df = pd.read_csv(candidate_dir / "compare.csv")
+    assert len(df) == _BASELINE_STANDARD_STARTS
+
+
+def test_run_report_writes_exactly_one_comparison_row_per_key_despite_baselines_own_duplicate_start(tmp_path):
+    # baseline.py's basin_rates() re-probes the "standard" start already
+    # covered by standard_start_results() - both go through run(), so a
+    # single `only=["baseline"]` run_report call genuinely writes two
+    # rows for that key to results/*.jsonl. compare must still produce
+    # one row per (problem_id, backend, method, start), not a cross-join
+    # explosion.
+    baseline_dir = tmp_path / "baseline"
+    candidate_dir = tmp_path / "candidate"
+    run_report(baseline_dir, only=["baseline"], use_trust=False, use_scipy=True, html=False)
+
+    run_report(
+        candidate_dir, only=["baseline"], use_trust=False, use_scipy=True, html=False, baselines=[baseline_dir]
+    )
+
+    df = pd.read_csv(candidate_dir / "compare.csv")
+    assert len(df) == _BASELINE_STANDARD_STARTS
+    assert df["classification"].notna().all()
+
+
+def test_run_report_can_compare_against_a_baseline_with_a_custom_results_dir(tmp_path):
+    baseline_dir = tmp_path / "baseline"
+    candidate_dir = tmp_path / "candidate"
+    run_report(baseline_dir, only=["baseline"], use_trust=False, use_scipy=True, html=False)
+
+    run_report(
+        candidate_dir,
+        only=["baseline"],
+        use_trust=False,
+        use_scipy=True,
+        html=False,
+        results_dir="custom_results",
+        baselines=[baseline_dir],
+    )
+
+    assert (candidate_dir / "compare.csv").exists()
+    assert (candidate_dir / "custom_results").exists()
+    assert not (candidate_dir / "results").exists()
+
+
+def test_run_report_without_a_baseline_writes_no_comparison_artefacts(tmp_path):
+    run_report(tmp_path, only=["baseline"], use_trust=False, use_scipy=True, html=False)
+
+    assert not (tmp_path / "compare.csv").exists()
+
+
+def test_run_report_raises_clearly_when_comparing_with_results_persistence_disabled(tmp_path):
+    with pytest.raises(ValueError, match="results"):
+        run_report(
+            tmp_path,
+            only=["baseline"],
+            use_trust=False,
+            use_scipy=True,
+            html=False,
+            results_dir=None,
+            baselines=[tmp_path / "nonexistent"],
+        )
+
+
+def test_report_command_accepts_baseline_directories_end_to_end(tmp_path):
+    baseline_dir = tmp_path / "baseline"
+    candidate_dir = tmp_path / "candidate"
+    main(["report", "--output-dir", str(baseline_dir), "--only", "baseline", "--no-trust", "--scipy", "--no-html"])
+
+    main(
+        [
+            "report",
+            str(baseline_dir),
+            "--output-dir",
+            str(candidate_dir),
+            "--only",
+            "baseline",
+            "--no-trust",
+            "--scipy",
+            "--no-html",
+        ]
+    )
+
+    assert (candidate_dir / "compare.csv").exists()
 
 
 def test_report_command_runs_end_to_end_through_the_real_cli_entry_point(tmp_path):
     # A cheap, real reading of the acceptance criterion: the actual CLI
     # entry point, headless, writing real files on disk for a small,
-    # fast subset - proving the orchestration wiring (STUDIES loop,
-    # --html flag) works end-to-end without paying for every study
-    # (dimensionality and capability_frontier alone cost tens of
-    # seconds each by design; see SLOW_STUDIES).
-    main(["report", "--output-dir", str(tmp_path), "--only", "baseline", "typical", "--html"])
+    # fast subset - proving the orchestration wiring (STUDIES loop, the
+    # html-by-default bundling) works end-to-end without paying for
+    # every study (dimensionality and capability_frontier alone cost
+    # tens of seconds each by design; see SLOW_STUDIES) or requiring
+    # dyalogscript (--no-trust --scipy).
+    main(["report", "--output-dir", str(tmp_path), "--only", "baseline", "typical", "--no-trust", "--scipy"])
 
     assert matplotlib.get_backend().lower() == "agg"
 
@@ -578,10 +777,13 @@ def _compare_run_result(**overrides):
     return RunResult(**defaults)
 
 
-def _write_compare_results(path, results):
+def _write_results_dir(directory, results, sha="sha-a"):
+    directory = Path(directory)
+    path = directory / "results" / f"{sha}.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
     for result in results:
         storage.append(result, path)
-    return path
+    return directory
 
 
 def test_compare_help_is_available_and_exits_cleanly():
@@ -591,18 +793,18 @@ def test_compare_help_is_available_and_exits_cleanly():
     assert excinfo.value.code == 0
 
 
-def test_compare_command_parses_baseline_and_candidate_paths():
-    args = build_parser().parse_args(["compare", "baseline.jsonl", "candidate.jsonl"])
+def test_compare_command_parses_baseline_and_candidate_directories():
+    args = build_parser().parse_args(["compare", "baseline-dir", "candidate-dir"])
 
-    assert args.baseline == "baseline.jsonl"
-    assert args.candidate == "candidate.jsonl"
+    assert args.baseline_dir == "baseline-dir"
+    assert args.candidate_dir == "candidate-dir"
     assert args.output_dir == "reports"
     assert args.html is False
 
 
 def test_compare_command_accepts_output_dir_and_html_flag():
     args = build_parser().parse_args(
-        ["compare", "baseline.jsonl", "candidate.jsonl", "--output-dir", "out", "--html"]
+        ["compare", "baseline-dir", "candidate-dir", "--output-dir", "out", "--html"]
     )
 
     assert args.output_dir == "out"
@@ -610,10 +812,10 @@ def test_compare_command_accepts_output_dir_and_html_flag():
 
 
 def test_run_compare_writes_a_full_provenance_table_with_classifications(tmp_path):
-    baseline_path = _write_compare_results(tmp_path / "baseline.jsonl", [_compare_run_result(dist_to_opt=0.0)])
-    candidate_path = _write_compare_results(tmp_path / "candidate.jsonl", [_compare_run_result(dist_to_opt=0.5)])
+    baseline_dir = _write_results_dir(tmp_path / "baseline", [_compare_run_result(dist_to_opt=0.0)])
+    candidate_dir = _write_results_dir(tmp_path / "candidate", [_compare_run_result(dist_to_opt=0.5)])
 
-    output_dir = run_compare(baseline_path, candidate_path, tmp_path / "out")
+    output_dir = run_compare(baseline_dir, candidate_dir, tmp_path / "out")
 
     df = pd.read_csv(output_dir / "compare.csv")
     assert df["classification"].iloc[0] == "regression"
@@ -622,38 +824,71 @@ def test_run_compare_writes_a_full_provenance_table_with_classifications(tmp_pat
 
 
 def test_run_compare_writes_a_classification_counts_plot(tmp_path):
-    baseline_path = _write_compare_results(tmp_path / "baseline.jsonl", [_compare_run_result()])
-    candidate_path = _write_compare_results(tmp_path / "candidate.jsonl", [_compare_run_result()])
+    baseline_dir = _write_results_dir(tmp_path / "baseline", [_compare_run_result()])
+    candidate_dir = _write_results_dir(tmp_path / "candidate", [_compare_run_result()])
 
-    output_dir = run_compare(baseline_path, candidate_path, tmp_path / "out")
+    output_dir = run_compare(baseline_dir, candidate_dir, tmp_path / "out")
 
     assert (output_dir / "compare.png").exists()
 
 
 def test_run_compare_does_not_write_an_html_bundle_by_default(tmp_path):
-    baseline_path = _write_compare_results(tmp_path / "baseline.jsonl", [_compare_run_result()])
-    candidate_path = _write_compare_results(tmp_path / "candidate.jsonl", [_compare_run_result()])
+    baseline_dir = _write_results_dir(tmp_path / "baseline", [_compare_run_result()])
+    candidate_dir = _write_results_dir(tmp_path / "candidate", [_compare_run_result()])
 
-    output_dir = run_compare(baseline_path, candidate_path, tmp_path / "out")
+    output_dir = run_compare(baseline_dir, candidate_dir, tmp_path / "out")
 
     assert not (output_dir / "report.html").exists()
 
 
 def test_run_compare_writes_an_html_bundle_when_requested(tmp_path):
-    baseline_path = _write_compare_results(tmp_path / "baseline.jsonl", [_compare_run_result(dist_to_opt=0.0)])
-    candidate_path = _write_compare_results(tmp_path / "candidate.jsonl", [_compare_run_result(dist_to_opt=0.5)])
+    baseline_dir = _write_results_dir(tmp_path / "baseline", [_compare_run_result(dist_to_opt=0.0)])
+    candidate_dir = _write_results_dir(tmp_path / "candidate", [_compare_run_result(dist_to_opt=0.5)])
 
-    output_dir = run_compare(baseline_path, candidate_path, tmp_path / "out", html=True)
+    output_dir = run_compare(baseline_dir, candidate_dir, tmp_path / "out", html=True)
 
     html = (output_dir / "report.html").read_text()
     assert "regression" in html
 
 
-def test_compare_command_runs_end_to_end_through_the_real_cli_entry_point(tmp_path):
-    baseline_path = _write_compare_results(tmp_path / "baseline.jsonl", [_compare_run_result()])
-    candidate_path = _write_compare_results(tmp_path / "candidate.jsonl", [_compare_run_result()])
+def test_run_compare_pools_multiple_jsonl_files_within_a_directory(tmp_path):
+    baseline_dir = tmp_path / "baseline"
+    _write_results_dir(baseline_dir, [_compare_run_result(problem_id="rosenbrock")], sha="sha-a")
+    _write_results_dir(baseline_dir, [_compare_run_result(problem_id="beale")], sha="sha-b")
+    candidate_dir = _write_results_dir(
+        tmp_path / "candidate",
+        [_compare_run_result(problem_id="rosenbrock"), _compare_run_result(problem_id="beale")],
+    )
 
-    main(["compare", str(baseline_path), str(candidate_path), "--output-dir", str(tmp_path / "out"), "--html"])
+    output_dir = run_compare(baseline_dir, candidate_dir, tmp_path / "out")
+
+    df = pd.read_csv(output_dir / "compare.csv")
+    assert len(df) == 2
+
+
+def test_run_compare_raises_clearly_when_a_directory_has_no_results(tmp_path):
+    baseline_dir = _write_results_dir(tmp_path / "baseline", [_compare_run_result()])
+    empty_dir = tmp_path / "empty"
+    empty_dir.mkdir()
+
+    with pytest.raises(ValueError, match="no results"):
+        run_compare(baseline_dir, empty_dir, tmp_path / "out")
+
+
+def test_compare_command_runs_end_to_end_through_the_real_cli_entry_point(tmp_path):
+    baseline_dir = _write_results_dir(tmp_path / "baseline", [_compare_run_result()])
+    candidate_dir = _write_results_dir(tmp_path / "candidate", [_compare_run_result()])
+
+    main(
+        [
+            "compare",
+            str(baseline_dir),
+            str(candidate_dir),
+            "--output-dir",
+            str(tmp_path / "out"),
+            "--html",
+        ]
+    )
 
     assert (tmp_path / "out" / "compare.csv").exists()
     assert (tmp_path / "out" / "report.html").exists()
