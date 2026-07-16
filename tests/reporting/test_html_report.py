@@ -56,6 +56,31 @@ def populated_report(tmp_path):
     return tmp_path
 
 
+def _write_compare(output_dir, with_plot=True):
+    df = pd.DataFrame(
+        [
+            dict(
+                problem_id="rosenbrock",
+                backend="scipy",
+                method="lm",
+                start="standard",
+                classification="regression",
+                changed_tier1_metrics="['dist_to_opt']",
+                timing_median_baseline=0.01,
+                timing_median_candidate=0.02,
+                machine_fingerprint="fp-x",
+                backend_version="1.1",
+                baseline_backend_version="1.0",
+                candidate_backend_version="1.1",
+            )
+        ]
+    )
+    save_table(df, output_dir / "compare.csv")
+    if with_plot:
+        fig = plot_metric_vs_sweep(df.assign(x=[1]), x="x", y="timing_median_candidate", group="backend")
+        save_figure(fig, output_dir / "compare.png")
+
+
 def _heading(name):
     return f"<h3>{TITLES[name]}</h3>"
 
@@ -155,6 +180,39 @@ def test_no_timing_caveat_is_shown_when_no_study_measured_timing(tmp_path):
     html = build_html_report(tmp_path)
 
     assert "cross-language" not in html.lower()
+
+
+def test_a_longitudinal_comparison_section_is_rendered_when_compare_csv_is_present(tmp_path):
+    _write_compare(tmp_path)
+
+    html = build_html_report(tmp_path)
+
+    assert _heading("compare") in html
+    assert "regression" in html
+
+
+def test_the_comparison_section_carries_a_graph_not_just_the_raw_table(tmp_path):
+    _write_compare(tmp_path)
+
+    html = build_html_report(tmp_path)
+
+    comparison_section = html[html.index(_heading("compare")) :]
+    assert "<img" in comparison_section
+
+
+def test_the_comparison_section_shows_full_provenance_columns(tmp_path):
+    _write_compare(tmp_path)
+
+    html = build_html_report(tmp_path)
+
+    assert "baseline_backend_version" in html
+    assert "candidate_backend_version" in html
+
+
+def test_the_comparison_section_is_omitted_when_no_compare_csv_is_present(populated_report):
+    html = build_html_report(populated_report)
+
+    assert _heading("compare") not in html
 
 
 def test_save_html_report_writes_a_readable_file(tmp_path):
